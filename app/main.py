@@ -59,7 +59,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",    # React dev server
-        "http://localhost:5173",    # Vite dev server
+        "http://localhost:5173",
+        "http://localhost:5174",    # Vite dev server
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -71,15 +72,16 @@ app.middleware("http")(logging_middleware)
 
 
 # ─── Routers ────────────────────────────────────────────────
-# Uncomment as each team member creates their routers:
+# Personi 1 - Auth & Users
+from app.routers import auth, users
 
-# from app.routers import auth, users        # Personi 1
+# Uncomment as each team member creates their routers:
 # from app.routers import posts, feed        # Personi 2
 # from app.routers import follow, notifications  # Personi 3
 # from app.routers import search, ai         # Personi 4
 
-# app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
-# app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
+app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
+app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
 # app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts"])
 # app.include_router(feed.router,          prefix="/api/v1/feed",          tags=["Feed"])
 # app.include_router(follow.router,        prefix="/api/v1/follow",        tags=["Follow"])
