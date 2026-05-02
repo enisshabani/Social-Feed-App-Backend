@@ -39,6 +39,11 @@ class PasswordChange(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=100)
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Schema for forgot password request."""
+    email: EmailStr
+
+
 # ─── Response Schemas ───────────────────────────────────────
 
 class UserResponse(BaseModel):

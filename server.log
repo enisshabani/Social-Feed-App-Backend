@@ -53,3 +53,350 @@ INFO:     127.0.0.1:51557 - "GET /docs HTTP/1.1" 200 OK
 2026-05-02 20:20:22 | INFO     | kapak | → GET /openapi.json
 2026-05-02 20:20:22 | INFO     | kapak | ← GET /openapi.json | Status: 200 | Duration: 5.89ms
 INFO:     127.0.0.1:51557 - "GET /openapi.json HTTP/1.1" 200 OK
+2026-05-02 20:24:53 | INFO     | kapak | → GET /docs
+2026-05-02 20:24:53 | INFO     | kapak | ← GET /docs | Status: 200 | Duration: 0.62ms
+INFO:     127.0.0.1:51580 - "GET /docs HTTP/1.1" 200 OK
+2026-05-02 20:24:53 | INFO     | kapak | → GET /openapi.json
+2026-05-02 20:24:53 | INFO     | kapak | ← GET /openapi.json | Status: 200 | Duration: 0.49ms
+INFO:     127.0.0.1:51580 - "GET /openapi.json HTTP/1.1" 200 OK
+2026-05-02 20:26:17 | INFO     | kapak | → GET /docs
+2026-05-02 20:26:17 | INFO     | kapak | ← GET /docs | Status: 200 | Duration: 1.84ms
+INFO:     127.0.0.1:51600 - "GET /docs HTTP/1.1" 200 OK
+2026-05-02 20:26:21 | INFO     | kapak | → GET /openapi.json
+2026-05-02 20:26:21 | INFO     | kapak | ← GET /openapi.json | Status: 200 | Duration: 0.72ms
+INFO:     127.0.0.1:51600 - "GET /openapi.json HTTP/1.1" 200 OK
+2026-05-02 20:26:22 | INFO     | kapak | → GET /docs
+2026-05-02 20:26:22 | INFO     | kapak | ← GET /docs | Status: 200 | Duration: 0.39ms
+INFO:     127.0.0.1:51601 - "GET /docs HTTP/1.1" 200 OK
+2026-05-02 20:26:22 | INFO     | kapak | → GET /apple-touch-icon-precomposed.png
+2026-05-02 20:26:22 | INFO     | kapak | ← GET /apple-touch-icon-precomposed.png | Status: 404 | Duration: 0.6ms
+INFO:     127.0.0.1:51602 - "GET /apple-touch-icon-precomposed.png HTTP/1.1" 404 Not Found
+2026-05-02 20:26:22 | INFO     | kapak | → GET /apple-touch-icon.png
+2026-05-02 20:26:22 | INFO     | kapak | ← GET /apple-touch-icon.png | Status: 404 | Duration: 0.35ms
+INFO:     127.0.0.1:51602 - "GET /apple-touch-icon.png HTTP/1.1" 404 Not Found
+2026-05-02 20:26:23 | INFO     | kapak | → GET /docs
+2026-05-02 20:26:23 | INFO     | kapak | ← GET /docs | Status: 200 | Duration: 0.53ms
+INFO:     127.0.0.1:51601 - "GET /docs HTTP/1.1" 200 OK
+2026-05-02 20:26:23 | INFO     | kapak | → GET /apple-touch-icon-precomposed.png
+2026-05-02 20:26:23 | INFO     | kapak | ← GET /apple-touch-icon-precomposed.png | Status: 404 | Duration: 0.33ms
+INFO:     127.0.0.1:51602 - "GET /apple-touch-icon-precomposed.png HTTP/1.1" 404 Not Found
+2026-05-02 20:26:23 | INFO     | kapak | → GET /apple-touch-icon.png
+2026-05-02 20:26:23 | INFO     | kapak | ← GET /apple-touch-icon.png | Status: 404 | Duration: 0.4ms
+INFO:     127.0.0.1:51602 - "GET /apple-touch-icon.png HTTP/1.1" 404 Not Found
+2026-05-02 20:47:16 | INFO     | kapak | → POST /api/v1/auth/login
+2026-05-02 20:47:16,320 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 20:47:16 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 20:47:16,323 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 20:47:16 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 20:47:16,324 INFO sqlalchemy.engine.Engine [generated in 0.00038s] {'username_1': 'test@gmail.com', 'param_1': 1}
+2026-05-02 20:47:16 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00038s] {'username_1': 'test@gmail.com', 'param_1': 1}
+2026-05-02 20:47:16,329 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 20:47:16 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 20:47:16 | INFO     | kapak | ← POST /api/v1/auth/login | Status: 401 | Duration: 31.31ms
+INFO:     127.0.0.1:51667 - "POST /api/v1/auth/login HTTP/1.1" 401 Unauthorized
+2026-05-02 20:59:21 | INFO     | kapak | → OPTIONS /api/v1/auth/forgot-password
+2026-05-02 20:59:21 | INFO     | kapak | ← OPTIONS /api/v1/auth/forgot-password | Status: 200 | Duration: 2.39ms
+INFO:     127.0.0.1:51772 - "OPTIONS /api/v1/auth/forgot-password HTTP/1.1" 200 OK
+2026-05-02 20:59:21 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 20:59:21 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 404 | Duration: 1.65ms
+INFO:     127.0.0.1:51772 - "POST /api/v1/auth/forgot-password HTTP/1.1" 404 Not Found
+2026-05-02 20:59:28 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 20:59:28 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 404 | Duration: 0.95ms
+INFO:     127.0.0.1:51774 - "POST /api/v1/auth/forgot-password HTTP/1.1" 404 Not Found
+2026-05-02 20:59:28 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 20:59:28 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 404 | Duration: 1.01ms
+INFO:     127.0.0.1:51774 - "POST /api/v1/auth/forgot-password HTTP/1.1" 404 Not Found
+2026-05-02 20:59:28 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 20:59:28 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 404 | Duration: 0.78ms
+INFO:     127.0.0.1:51774 - "POST /api/v1/auth/forgot-password HTTP/1.1" 404 Not Found
+WARNING:  WatchFiles detected changes in 'app/schemas/user.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-05-02 21:01:15 | INFO     | kapak | 👋 Shutting down KaPak
+INFO:     Application shutdown complete.
+INFO:     Finished server process [56705]
+INFO:     Started server process [58486]
+INFO:     Waiting for application startup.
+2026-05-02 21:01:15 | INFO     | kapak | 🚀 Starting KaPak v1.0.0
+2026-05-02 21:01:15,964 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | select pg_catalog.version()
+2026-05-02 21:01:15,965 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | [raw sql] {}
+2026-05-02 21:01:15,965 INFO sqlalchemy.engine.Engine select current_schema()
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | select current_schema()
+2026-05-02 21:01:15,965 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | [raw sql] {}
+2026-05-02 21:01:15,965 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | show standard_conforming_strings
+2026-05-02 21:01:15,965 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | [raw sql] {}
+2026-05-02 21:01:15,966 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:01:15,967 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:15,967 INFO sqlalchemy.engine.Engine [generated in 0.00006s] {'table_name': 'users', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00006s] {'table_name': 'users', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:15,970 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:15,970 INFO sqlalchemy.engine.Engine [generated in 0.00006s] {'typname_1': 'userrole', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00006s] {'typname_1': 'userrole', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:15,970 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-02 21:01:15 | INFO     | sqlalchemy.engine.Engine | COMMIT
+2026-05-02 21:01:15 | INFO     | kapak | ✅ Database tables created/verified
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/routers/auth.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-05-02 21:01:27 | INFO     | kapak | 👋 Shutting down KaPak
+INFO:     Application shutdown complete.
+INFO:     Finished server process [58486]
+INFO:     Started server process [58501]
+INFO:     Waiting for application startup.
+2026-05-02 21:01:27 | INFO     | kapak | 🚀 Starting KaPak v1.0.0
+2026-05-02 21:01:27,520 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | select pg_catalog.version()
+2026-05-02 21:01:27,520 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | [raw sql] {}
+2026-05-02 21:01:27,521 INFO sqlalchemy.engine.Engine select current_schema()
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | select current_schema()
+2026-05-02 21:01:27,521 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | [raw sql] {}
+2026-05-02 21:01:27,521 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | show standard_conforming_strings
+2026-05-02 21:01:27,521 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | [raw sql] {}
+2026-05-02 21:01:27,522 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:01:27,523 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:27,523 INFO sqlalchemy.engine.Engine [generated in 0.00008s] {'table_name': 'users', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00008s] {'table_name': 'users', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:27,526 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2026-05-02 21:01:27,526 INFO sqlalchemy.engine.Engine [generated in 0.00004s] {'typname_1': 'userrole', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00004s] {'typname_1': 'userrole', 'nspname_1': 'pg_catalog'}
+2026-05-02 21:01:27,526 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-02 21:01:27 | INFO     | sqlalchemy.engine.Engine | COMMIT
+2026-05-02 21:01:27 | INFO     | kapak | ✅ Database tables created/verified
+INFO:     Application startup complete.
+2026-05-02 21:02:02 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 21:02:02,568 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:02:02 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:02:02,570 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:02:02 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:02:02,570 INFO sqlalchemy.engine.Engine [generated in 0.00029s] {'email_1': 'test123@gmail.com', 'param_1': 1}
+2026-05-02 21:02:02 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00029s] {'email_1': 'test123@gmail.com', 'param_1': 1}
+2026-05-02 21:02:02,574 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:02:02 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:02:02 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 200 | Duration: 21.25ms
+INFO:     127.0.0.1:51795 - "POST /api/v1/auth/forgot-password HTTP/1.1" 200 OK
+2026-05-02 21:02:24 | INFO     | kapak | → OPTIONS /api/v1/auth/register
+2026-05-02 21:02:24 | INFO     | kapak | ← OPTIONS /api/v1/auth/register | Status: 200 | Duration: 0.74ms
+INFO:     127.0.0.1:51799 - "OPTIONS /api/v1/auth/register HTTP/1.1" 200 OK
+2026-05-02 21:02:24 | INFO     | kapak | → POST /api/v1/auth/register
+2026-05-02 21:02:24,201 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:02:24 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:02:24,203 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:02:24 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:02:24,203 INFO sqlalchemy.engine.Engine [generated in 0.00034s] {'username_1': 'test', 'param_1': 1}
+2026-05-02 21:02:24 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00034s] {'username_1': 'test', 'param_1': 1}
+2026-05-02 21:02:24,206 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:02:24 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:02:24 | INFO     | kapak | ← POST /api/v1/auth/register | Status: 400 | Duration: 12.98ms
+INFO:     127.0.0.1:51799 - "POST /api/v1/auth/register HTTP/1.1" 400 Bad Request
+2026-05-02 21:02:36 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 21:02:36,963 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:02:36 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:02:36,963 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:02:36 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:02:36,963 INFO sqlalchemy.engine.Engine [cached since 34.39s ago] {'email_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:02:36 | INFO     | sqlalchemy.engine.Engine | [cached since 34.39s ago] {'email_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:02:36,965 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:02:36 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:02:36 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 200 | Duration: 5.96ms
+INFO:     127.0.0.1:51801 - "POST /api/v1/auth/forgot-password HTTP/1.1" 200 OK
+2026-05-02 21:06:57 | INFO     | kapak | → POST /api/v1/auth/login
+2026-05-02 21:06:57,739 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:06:57 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:06:57,740 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:06:57 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:06:57,740 INFO sqlalchemy.engine.Engine [cached since 273.5s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:06:57 | INFO     | sqlalchemy.engine.Engine | [cached since 273.5s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:06:57,743 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:06:57 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:06:57 | INFO     | kapak | ← POST /api/v1/auth/login | Status: 401 | Duration: 20.37ms
+INFO:     127.0.0.1:51972 - "POST /api/v1/auth/login HTTP/1.1" 401 Unauthorized
+2026-05-02 21:06:59 | INFO     | kapak | → POST /api/v1/auth/login
+2026-05-02 21:06:59,475 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:06:59,476 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:06:59,476 INFO sqlalchemy.engine.Engine [cached since 275.3s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | [cached since 275.3s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:06:59,478 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:06:59 | INFO     | kapak | ← POST /api/v1/auth/login | Status: 401 | Duration: 8.18ms
+INFO:     127.0.0.1:51972 - "POST /api/v1/auth/login HTTP/1.1" 401 Unauthorized
+2026-05-02 21:06:59 | INFO     | kapak | → POST /api/v1/auth/login
+2026-05-02 21:06:59,940 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:06:59,940 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:06:59,941 INFO sqlalchemy.engine.Engine [cached since 275.7s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | [cached since 275.7s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:06:59,942 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:06:59 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:06:59 | INFO     | kapak | ← POST /api/v1/auth/login | Status: 401 | Duration: 6.62ms
+INFO:     127.0.0.1:51972 - "POST /api/v1/auth/login HTTP/1.1" 401 Unauthorized
+2026-05-02 21:07:23 | INFO     | kapak | → POST /api/v1/auth/register
+2026-05-02 21:07:23,773 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:07:23 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:07:23,773 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:23 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:23,773 INFO sqlalchemy.engine.Engine [cached since 299.6s ago] {'username_1': 'enis', 'param_1': 1}
+2026-05-02 21:07:23 | INFO     | sqlalchemy.engine.Engine | [cached since 299.6s ago] {'username_1': 'enis', 'param_1': 1}
+2026-05-02 21:07:23,775 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:07:23 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:07:23 | INFO     | kapak | ← POST /api/v1/auth/register | Status: 400 | Duration: 6.65ms
+INFO:     127.0.0.1:52001 - "POST /api/v1/auth/register HTTP/1.1" 400 Bad Request
+2026-05-02 21:07:31 | INFO     | kapak | → POST /api/v1/auth/register
+2026-05-02 21:07:31,990 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:07:31 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:07:31,991 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:31 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:31,991 INFO sqlalchemy.engine.Engine [cached since 307.8s ago] {'username_1': 'shabanienis', 'param_1': 1}
+2026-05-02 21:07:31 | INFO     | sqlalchemy.engine.Engine | [cached since 307.8s ago] {'username_1': 'shabanienis', 'param_1': 1}
+2026-05-02 21:07:31,992 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:31 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:31,992 INFO sqlalchemy.engine.Engine [cached since 329.4s ago] {'email_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:07:31 | INFO     | sqlalchemy.engine.Engine | [cached since 329.4s ago] {'email_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:07:32,197 INFO sqlalchemy.engine.Engine INSERT INTO users (username, email, hashed_password, display_name, bio, avatar_url, location, website, role, is_active, is_verified, tenant_id, created_at, updated_at) VALUES (%(username)s, %(email)s, %(hashed_password)s, %(display_name)s, %(bio)s, %(avatar_url)s, %(location)s, %(website)s, %(role)s, %(is_active)s, %(is_verified)s, %(tenant_id)s, %(created_at)s, %(updated_at)s) RETURNING users.id
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | INSERT INTO users (username, email, hashed_password, display_name, bio, avatar_url, location, website, role, is_active, is_verified, tenant_id, created_at, updated_at) VALUES (%(username)s, %(email)s, %(hashed_password)s, %(display_name)s, %(bio)s, %(avatar_url)s, %(location)s, %(website)s, %(role)s, %(is_active)s, %(is_verified)s, %(tenant_id)s, %(created_at)s, %(updated_at)s) RETURNING users.id
+2026-05-02 21:07:32,197 INFO sqlalchemy.engine.Engine [generated in 0.00019s] {'username': 'shabanienis', 'email': 'shabanienis40@gmail.com', 'hashed_password': '$2b$12$7yCrKJJpCr95BHLgTJLPpuICKwFQiKGLPxWvtOkB3Z4WLW60s8YjK', 'display_name': 'shabanienis', 'bio': None, 'avatar_url': None, 'location': None, 'website': None, 'role': 'USER', 'is_active': True, 'is_verified': False, 'tenant_id': 'default', 'created_at': datetime.datetime(2026, 5, 2, 19, 7, 32, 197781, tzinfo=datetime.timezone.utc), 'updated_at': datetime.datetime(2026, 5, 2, 19, 7, 32, 197786, tzinfo=datetime.timezone.utc)}
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00019s] {'username': 'shabanienis', 'email': 'shabanienis40@gmail.com', 'hashed_password': '$2b$12$7yCrKJJpCr95BHLgTJLPpuICKwFQiKGLPxWvtOkB3Z4WLW60s8YjK', 'display_name': 'shabanienis', 'bio': None, 'avatar_url': None, 'location': None, 'website': None, 'role': 'USER', 'is_active': True, 'is_verified': False, 'tenant_id': 'default', 'created_at': datetime.datetime(2026, 5, 2, 19, 7, 32, 197781, tzinfo=datetime.timezone.utc), 'updated_at': datetime.datetime(2026, 5, 2, 19, 7, 32, 197786, tzinfo=datetime.timezone.utc)}
+2026-05-02 21:07:32,201 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | COMMIT
+2026-05-02 21:07:32,203 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:07:32,203 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.email, users.hashed_password, users.display_name, users.bio, users.avatar_url, users.location, users.website, users.role, users.is_active, users.is_verified, users.tenant_id, users.created_at, users.updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | SELECT users.id, users.username, users.email, users.hashed_password, users.display_name, users.bio, users.avatar_url, users.location, users.website, users.role, users.is_active, users.is_verified, users.tenant_id, users.created_at, users.updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-05-02 21:07:32,203 INFO sqlalchemy.engine.Engine [generated in 0.00004s] {'pk_1': 7}
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | [generated in 0.00004s] {'pk_1': 7}
+2026-05-02 21:07:32,206 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:07:32 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:07:32 | INFO     | kapak | ← POST /api/v1/auth/register | Status: 201 | Duration: 219.37ms
+INFO:     127.0.0.1:52011 - "POST /api/v1/auth/register HTTP/1.1" 201 Created
+2026-05-02 21:07:41 | INFO     | kapak | → POST /api/v1/auth/login
+2026-05-02 21:07:41,789 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:07:41 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:07:41,789 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:41 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:41,789 INFO sqlalchemy.engine.Engine [cached since 317.6s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:07:41 | INFO     | sqlalchemy.engine.Engine | [cached since 317.6s ago] {'username_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:07:41,791 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:07:41 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:07:41 | INFO     | kapak | ← POST /api/v1/auth/login | Status: 401 | Duration: 5.96ms
+INFO:     127.0.0.1:52023 - "POST /api/v1/auth/login HTTP/1.1" 401 Unauthorized
+2026-05-02 21:07:48 | INFO     | kapak | → POST /api/v1/auth/forgot-password
+2026-05-02 21:07:48,989 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-02 21:07:48 | INFO     | sqlalchemy.engine.Engine | BEGIN (implicit)
+2026-05-02 21:07:48,989 INFO sqlalchemy.engine.Engine SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:48 | INFO     | sqlalchemy.engine.Engine | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.display_name AS users_display_name, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.location AS users_location, users.website AS users_website, users.role AS users_role, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.tenant_id AS users_tenant_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-05-02 21:07:48,989 INFO sqlalchemy.engine.Engine [cached since 346.4s ago] {'email_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:07:48 | INFO     | sqlalchemy.engine.Engine | [cached since 346.4s ago] {'email_1': 'shabanienis40@gmail.com', 'param_1': 1}
+2026-05-02 21:07:48,991 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-02 21:07:48 | INFO     | sqlalchemy.engine.Engine | ROLLBACK
+2026-05-02 21:07:48 | INFO     | kapak | ← POST /api/v1/auth/forgot-password | Status: 200 | Duration: 6.1ms
+INFO:     127.0.0.1:52034 - "POST /api/v1/auth/forgot-password HTTP/1.1" 200 OK

@@ -15,6 +15,7 @@ from app.schemas.user import (
     UserCreate,
     UserResponse,
     Token,
+    ForgotPasswordRequest,
 )
 
 router = APIRouter()
@@ -113,3 +114,29 @@ def get_me(current_user: User = Depends(get_current_user)):
     Requires a valid JWT token.
     """
     return current_user
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Kërkesë për rishkrim të fjalëkalimit.
+    Lidhet me backend-in për të parë nëse ekziston emaili.
+    Nuk kthen gabim nëse emaili nuk ekziston (për arsye sigurie/enumerimi).
+    Nëse gjendet, këtu do të shtohej logjika e dërgimit të email-it.
+    """
+    user = db.query(User).filter(User.email == request.email).first()
+
+    if not user:
+        # Për siguri, shpesh këshillohet të kthehet i njëjti mesazh suksesi
+        # në mënyrë që hakerat të mos mund të gjejnë se cili email ekziston.
+        # Megjithatë, që t'i besosh klientit, po e bëjmë të kthehet mesazh standard.
+        pass
+    else:
+        # TODO: Implemento dërgimin e emailit me një "reset token" që e nxjerrim nga JWT
+        # ose ruhet në databazë (p.sh. tabelë rst_tokens). Për momentin vetëm kthejmë sukses.
+        pass
+
+    return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një link për rishkrimin e fjalëkalimit është dërguar."}
