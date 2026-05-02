@@ -17,6 +17,7 @@ from app.schemas.user import (
     Token,
     ForgotPasswordRequest,
 )
+from app.core.email import send_reset_password_email, create_super_simple_token
 
 router = APIRouter()
 
@@ -117,7 +118,7 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/forgot-password")
-def forgot_password(
+async def forgot_password(
     request: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
@@ -132,11 +133,12 @@ def forgot_password(
     if not user:
         # Për siguri, shpesh këshillohet të kthehet i njëjti mesazh suksesi
         # në mënyrë që hakerat të mos mund të gjejnë se cili email ekziston.
-        # Megjithatë, që t'i besosh klientit, po e bëjmë të kthehet mesazh standard.
         pass
     else:
-        # TODO: Implemento dërgimin e emailit me një "reset token" që e nxjerrim nga JWT
-        # ose ruhet në databazë (p.sh. tabelë rst_tokens). Për momentin vetëm kthejmë sukses.
-        pass
+        # Përdoruesi u gjet në DB! Tani dërgojmë emailin me Token tek kutia tij
+        reset_token = create_super_simple_token()
+
+        # Përderisa kjo kërkon async ne duhet ti definojmë funskionin 'forgot_password' me **async def**
+        await send_reset_password_email(email_to=user.email, reset_token=reset_token)
 
     return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një link për rishkrimin e fjalëkalimit është dërguar."}

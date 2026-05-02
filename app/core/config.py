@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = ""
 
+    # Email
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM: str = ""
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    MAIL_FROM_NAME: str = "KaPak App"
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+
     class Config:
         env_file = ".env"
         case_sensitive = True
