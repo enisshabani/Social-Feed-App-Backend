@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # 1. Aktivizo mjedisin virtual (nëse ekziston)
-if [ -d "venv" ]; then
-    echo "Duke aktivizuar mjedisin virtual..."
+if [ -d ".venv" ]; then
+    echo "Duke aktivizuar mjedisin virtual (.venv)..."
+    source .venv/bin/activate
+elif [ -d "venv" ]; then
+    echo "Duke aktivizuar mjedisin virtual (venv)..."
     source venv/bin/activate
 fi
 
