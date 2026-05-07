@@ -12,9 +12,8 @@ settings = get_settings()
 # Create SQLAlchemy engine
 engine = create_engine(
     settings.DATABASE_URL,
+    connect_args={"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {},
     pool_pre_ping=True,       # Verify connections before using them
-    pool_size=10,             # Number of connections to keep open
-    max_overflow=20,          # Extra connections allowed beyond pool_size
     echo=settings.DEBUG,      # Log SQL queries in debug mode
 )
 
