@@ -64,8 +64,12 @@ app.middleware("http")(logging_middleware)
 # Personi 1 - Auth & Users
 from app.routers import auth, users
 
+# Personi 2 - Posts & Feed
+from app.routers import posts
+
 app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
+app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
 
 @app.get("/", tags=["Root"])
 async def root():

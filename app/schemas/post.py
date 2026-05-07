@@ -14,7 +14,7 @@ class PostBase(BaseModel):
     content: str
 
 class PostCreate(PostBase):
-    pass # Për krijim duhet vetëm 'content', ID-ja e autorit merret nga token-i.
+    pass
 
 class PostUpdate(BaseModel):
     content: Optional[str] = None
@@ -49,7 +49,6 @@ class CommentResponse(CommentBase):
 # LIKE SCHEMAS
 # ==========================================
 class LikeCreate(BaseModel):
-    # Një Like mund t'i bëhet ose një Postimi, ose një Komenti
     post_id: Optional[int] = None
     comment_id: Optional[int] = None
 

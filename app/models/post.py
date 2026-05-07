@@ -22,7 +22,6 @@ class Post(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Rregullimi i marrëdhënieve (Relationships)
     author = relationship("User", backref="posts")
     comments = relationship("Comment", backref="post", cascade="all, delete-orphan")
     likes = relationship("Like", backref="post", cascade="all, delete-orphan")
@@ -51,7 +50,6 @@ class Like(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    # Nje Like mund te jete per nje Postim OSE per nje Koment
     post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=True)
     comment_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
     
