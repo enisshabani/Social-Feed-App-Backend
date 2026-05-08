@@ -18,6 +18,8 @@ from app.schemas.post import (
     RepostCreate, RepostResponse
 )
 
+router = APIRouter()
+
 # ==========================================
 # POST ENDPOINTS
 # ==========================================
