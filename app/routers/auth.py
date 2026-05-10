@@ -3,9 +3,10 @@ KaPak - Authentication Router
 Endpoints: register, login, refresh token, me.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta, timezone
 
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
@@ -21,6 +22,10 @@ from app.core.email import send_reset_password_email, create_super_simple_token
 
 router = APIRouter()
 
+# --- VARIABLAT PËR KUFIZIMIN KUNDËR BRUTE FORCE ---
+LOGIN_ATTEMPTS = {}
+MAX_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -63,31 +68,55 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
     """
     Login with username and password.
     Returns a JWT access token.
-    
-    Uses OAuth2 form (username + password fields).
     """
+    
+    # 1. Kontrollo nëse përdoruesi (ose IP) është bllokuar
+    client_ip = request.client.host if request.client else "unknown"
+    lock_key = f"{form_data.username}_{client_ip}"
+    
+    if lock_key in LOGIN_ATTEMPTS:
+        attempt_data = LOGIN_ATTEMPTS[lock_key]
+        if attempt_data["locked_until"] and attempt_data["locked_until"] > datetime.now(timezone.utc):
+            remaining_time = (attempt_data["locked_until"] - datetime.now(timezone.utc)).total_seconds() // 60
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Llogaria juaj është bllokuar përkohësisht. Ju lutem provoni pas {int(remaining_time)} minutash."
+            )
+
     # Find user by username
     user = db.query(User).filter(User.username == form_data.username).first()
-    if not user:
+    
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        # 2. Regjistro provën e dështuar
+        if lock_key not in LOGIN_ATTEMPTS:
+            LOGIN_ATTEMPTS[lock_key] = {"attempts": 0, "locked_until": None}
+            
+        LOGIN_ATTEMPTS[lock_key]["attempts"] += 1
+        
+        # Bllokoje nëse kanë kaluar MAX_ATTEMPTS
+        if LOGIN_ATTEMPTS[lock_key]["attempts"] >= MAX_ATTEMPTS:
+            LOGIN_ATTEMPTS[lock_key]["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Shumë prova të dështuara! Jeni bllokuar për {LOCKOUT_MINUTES} minuta."
+            )
+            
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail=f"Kredenciale të gabuara. Keni edhe {MAX_ATTEMPTS - LOGIN_ATTEMPTS[lock_key]['attempts']} prova.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Verify password
-    if not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # 3. Nëse login është me sukses, fshi historikun e dështimeve
+    if lock_key in LOGIN_ATTEMPTS:
+        del LOGIN_ATTEMPTS[lock_key]
 
     # Check if account is active
     if not user.is_active:
