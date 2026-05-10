@@ -153,8 +153,8 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import uuid
 
-# Shënim: Fute Client ID tënd të saktë këtu (nga Google console)
-GOOGLE_CLIENT_ID = "Të-Mban-Në-Mend-Google-Këtu-Cfare-ID-ka.apps.googleusercontent.com"
+# Projekti ynë në Firebase
+FIREBASE_PROJECT_ID = "kapak-3af75"
 
 class GoogleAuthRequest(BaseModel):
     token: str
@@ -162,14 +162,12 @@ class GoogleAuthRequest(BaseModel):
 @router.post("/google")
 def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
     """
-    Identifikimi me Google. Nëse përdoruesi nuk ekziston, krijohet një i ri.
+    Identifikimi me Google (Nga Firebase). Nëse përdoruesi nuk ekziston, krijohet një i ri.
     Nëse ekziston, thjesht i kthehet JWT token i login.
     """
     try:
-        # 1. Verifikojmë tokenin i cili vjen nga Frontend (nga Firebase / Google)
-        # Në këtë rast meqenëse po përdor Firebase, mund të jetë më e lehtë thjesht të pranoni payload.
-        # Por le ta validojmë në mënyrë të sigurt për prodhim!
-        idinfo = id_token.verify_oauth2_token(payload.token, requests.Request())
+        # 1. Verifikojmë tokenin i cili vjen nga Frontend (Firebase ID Token)
+        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID)
         
         google_email = idinfo['email']
         google_name = idinfo.get('name', '')
