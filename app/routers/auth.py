@@ -90,8 +90,10 @@ def login(
                 detail=f"Llogaria juaj është bllokuar përkohësisht. Ju lutem provoni pas {int(remaining_time)} minutash."
             )
 
-    # Find user by username
-    user = db.query(User).filter(User.username == form_data.username).first()
+    # Find user by username or email
+    user = db.query(User).filter(
+        (User.username == form_data.username) | (User.email == form_data.username)
+    ).first()
     
     if not user or not verify_password(form_data.password, user.hashed_password):
         # 2. Regjistro provën e dështuar
