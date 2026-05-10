@@ -148,6 +148,73 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+from pydantic import BaseModel
+from google.oauth2 import id_token
+from google.auth.transport import requests
+import uuid
+
+# Shënim: Fute Client ID tënd të saktë këtu (nga Google console)
+GOOGLE_CLIENT_ID = "Të-Mban-Në-Mend-Google-Këtu-Cfare-ID-ka.apps.googleusercontent.com"
+
+class GoogleAuthRequest(BaseModel):
+    token: str
+
+@router.post("/google")
+def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
+    """
+    Identifikimi me Google. Nëse përdoruesi nuk ekziston, krijohet një i ri.
+    Nëse ekziston, thjesht i kthehet JWT token i login.
+    """
+    try:
+        # 1. Verifikojmë tokenin i cili vjen nga Frontend (nga Firebase / Google)
+        # Në këtë rast meqenëse po përdor Firebase, mund të jetë më e lehtë thjesht të pranoni payload.
+        # Por le ta validojmë në mënyrë të sigurt për prodhim!
+        idinfo = id_token.verify_oauth2_token(payload.token, requests.Request())
+        
+        google_email = idinfo['email']
+        google_name = idinfo.get('name', '')
+        
+        # 2. Kontrollojmë nëse e kemi këtë email në db tonë
+        user = db.query(User).filter(User.email == google_email).first()
+        
+        if not user:
+            # 3. Nëse NUK është ky email asnjëherë te ne, regjistroje automatikisht!
+            base_username = google_email.split('@')[0]
+            # Në rast se username i tij (i emailit) ekziston, shtojmë një fjalë unik
+            existing_user = db.query(User).filter(User.username == base_username).first()
+            if existing_user:
+                base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
+                
+            user = User(
+                username=base_username,
+                email=google_email,
+                # Fjalkalimi do te jete random pasi kyçet gjithmonë me Google
+                hashed_password=hash_password(str(uuid.uuid4())),
+                display_name=google_name,
+                is_verified=True # Nga Google është e verifikuar gjithmonë!
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+        # 4. Në fund pavarësisht u krijua nga e para app o ekzistontë, bëj logout:
+        # Bëjmë update llogarinë (që t'i gjenerohet tokeni ynë vendor)
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role.value,
+            }
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+        
+    except ValueError:
+        # Tokeni i Google ka skaduar, ose dikush e shkroi manualisht
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Validimi me Google dështoi",
+        )
+
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
