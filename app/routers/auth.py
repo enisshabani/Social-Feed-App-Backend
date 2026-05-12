@@ -213,6 +213,59 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             detail="Validimi me Google dështoi",
         )
 
+class GithubAuthRequest(BaseModel):
+    token: str
+
+@router.post("/github")
+def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
+    """
+    Identifikimi me GitHub (Nga Firebase). Nëse përdoruesi nuk ekziston, krijohet një i ri.
+    Nëse ekziston, thjesht i kthehet JWT token i login.
+    """
+    try:
+        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID)
+        
+        github_email = idinfo.get('email', '')
+        # Nëse GH nuk jep email publik, ne mund të duhet t'i japim një fallback
+        if not github_email:
+            github_email = idinfo.get('uid', '') + "@github.kapak.com"
+
+        github_name = idinfo.get('name', '')
+        
+        user = db.query(User).filter(User.email == github_email).first()
+        
+        if not user:
+            base_username = github_email.split('@')[0]
+            existing_user = db.query(User).filter(User.username == base_username).first()
+            if existing_user:
+                base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
+                
+            user = User(
+                username=base_username,
+                email=github_email,
+                hashed_password=hash_password(str(uuid.uuid4())),
+                display_name=github_name,
+                is_verified=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role.value,
+            }
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Validimi me GitHub dështoi",
+        )
+
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
