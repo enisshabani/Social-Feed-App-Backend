@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/kapak"
+    DATABASE_URL: str = "sqlite:///./test.db"
 
     # JWT Authentication
     SECRET_KEY: str = "kapak-super-secret-key-change-in-production-2025"
