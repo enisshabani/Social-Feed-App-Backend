@@ -167,7 +167,8 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
     """
     try:
         # 1. Verifikojmë tokenin i cili vjen nga Frontend (Firebase ID Token)
-        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID)
+        # Shtojmë clock_skew_in_seconds=300 (5 minuta) për të lejuar përdoruesit që e kanë orën e kompjuterit mbrapa ose para
+        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID, clock_skew_in_seconds=300)
         
         google_email = idinfo['email']
         google_name = idinfo.get('name', '')
@@ -177,7 +178,13 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
         
         if not user:
             # 3. Nëse NUK është ky email asnjëherë te ne, regjistroje automatikisht!
+            import re
             base_username = google_email.split('@')[0]
+            # Shumica e bazave relacione kan limite (p.sh. 50 char) ndaj e shkurtojme
+            base_username = base_username[:40]
+            # Fshijmë karakteret jo-alfanumerike
+            base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
+
             # Në rast se username i tij (i emailit) ekziston, shtojmë një fjalë unik
             existing_user = db.query(User).filter(User.username == base_username).first()
             if existing_user:
@@ -206,8 +213,9 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
         )
         return {"access_token": access_token, "token_type": "bearer"}
         
-    except ValueError:
+    except ValueError as e:
         # Tokeni i Google ka skaduar, ose dikush e shkroi manualisht
+        print(f"Gabim në validimin e tokenit të Google: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Validimi me Google dështoi",
@@ -223,7 +231,8 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
     Nëse ekziston, thjesht i kthehet JWT token i login.
     """
     try:
-        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID)
+        # Shtojmë clock_skew_in_seconds=300 (5 minuta) 
+        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID, clock_skew_in_seconds=300)
         
         github_email = idinfo.get('email', '')
         # Nëse GH nuk jep email publik, ne mund të duhet t'i japim një fallback
@@ -235,7 +244,10 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
         user = db.query(User).filter(User.email == github_email).first()
         
         if not user:
+            import re
             base_username = github_email.split('@')[0]
+            base_username = base_username[:40]
+            base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
             existing_user = db.query(User).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
@@ -260,7 +272,8 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
         )
         return {"access_token": access_token, "token_type": "bearer"}
         
-    except ValueError:
+    except ValueError as e:
+        print(f"Gabim në validimin e tokenit të GitHub: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Validimi me GitHub dështoi",
