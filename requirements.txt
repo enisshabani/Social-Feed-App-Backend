@@ -10,6 +10,7 @@ alembic==1.15.2
 # Authentication
 python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
+google-auth==2.30.0
 
 # Environment & Validation
 python-dotenv==1.1.0
