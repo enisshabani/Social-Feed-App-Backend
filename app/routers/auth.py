@@ -7,6 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel
+from google.oauth2 import id_token
+from google.auth.transport import requests
+import uuid
+import re
 
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
@@ -148,11 +153,6 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-from pydantic import BaseModel
-from google.oauth2 import id_token
-from google.auth.transport import requests
-import uuid
-
 # Projekti ynë në Firebase
 FIREBASE_PROJECT_ID = "kapak-3af75"
 
@@ -166,44 +166,57 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
     Nëse ekziston, thjesht i kthehet JWT token i login.
     """
     try:
-        # 1. Verifikojmë tokenin i cili vjen nga Frontend (Firebase ID Token)
-        # Shtojmë clock_skew_in_seconds=300 (5 minuta) për të lejuar përdoruesit që e kanë orën e kompjuterit mbrapa ose para
-        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID, clock_skew_in_seconds=300)
+        print(f"[GOOGLE AUTH] Starting authentication with token...")
         
-        google_email = idinfo['email']
+        # 1. Verifikojmë tokenin i cili vjen nga Frontend (Firebase ID Token)
+        idinfo = id_token.verify_firebase_token(
+            payload.token, 
+            requests.Request(), 
+            audience=FIREBASE_PROJECT_ID, 
+            clock_skew_in_seconds=300
+        )
+        
+        google_email = idinfo.get('email', '')
         google_name = idinfo.get('name', '')
+        
+        print(f"[GOOGLE AUTH] Token verified. Email: {google_email}, Name: {google_name}")
+        
+        if not google_email:
+            raise ValueError("Google token nuk përmban email")
         
         # 2. Kontrollojmë nëse e kemi këtë email në db tonë
         user = db.query(User).filter(User.email == google_email).first()
         
         if not user:
+            print(f"[GOOGLE AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
+            
             # 3. Nëse NUK është ky email asnjëherë te ne, regjistroje automatikisht!
-            import re
             base_username = google_email.split('@')[0]
-            # Shumica e bazave relacione kan limite (p.sh. 50 char) ndaj e shkurtojme
             base_username = base_username[:40]
-            # Fshijmë karakteret jo-alfanumerike
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
 
-            # Në rast se username i tij (i emailit) ekziston, shtojmë një fjalë unik
             existing_user = db.query(User).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
-                
+            
+            print(f"[GOOGLE AUTH] Përpiqem të krijohet përdorues me username: {base_username}")
+            
             user = User(
                 username=base_username,
                 email=google_email,
-                # Fjalkalimi do te jete random pasi kyçet gjithmonë me Google
                 hashed_password=hash_password(str(uuid.uuid4())),
-                display_name=google_name,
-                is_verified=True # Nga Google është e verifikuar gjithmonë!
+                display_name=google_name or base_username,
+                is_verified=True
             )
             db.add(user)
             db.commit()
             db.refresh(user)
             
-        # 4. Në fund pavarësisht u krijua nga e para app o ekzistontë, bëj logout:
-        # Bëjmë update llogarinë (që t'i gjenerohet tokeni ynë vendor)
+            print(f"[GOOGLE AUTH] Përdoruesi u krijua me ID: {user.id}")
+        else:
+            print(f"[GOOGLE AUTH] Përdoruesi ekziston me ID: {user.id}")
+        
+        # 4. Krijoni JWT token
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
@@ -211,14 +224,23 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 "role": user.role.value,
             }
         )
+        
+        print(f"[GOOGLE AUTH] Token u gjenera me sukses")
         return {"access_token": access_token, "token_type": "bearer"}
         
     except ValueError as e:
-        # Tokeni i Google ka skaduar, ose dikush e shkroi manualisht
-        print(f"Gabim në validimin e tokenit të Google: {e}")
+        print(f"[GOOGLE AUTH ERROR] ValueError: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Validimi me Google dështoi",
+            detail=f"Validimi me Google dështoi: {str(e)}",
+        )
+    except Exception as e:
+        print(f"[GOOGLE AUTH ERROR] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Gabim i brendshëm: {str(e)}",
         )
 
 class GithubAuthRequest(BaseModel):
@@ -231,38 +253,58 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
     Nëse ekziston, thjesht i kthehet JWT token i login.
     """
     try:
-        # Shtojmë clock_skew_in_seconds=300 (5 minuta) 
-        idinfo = id_token.verify_firebase_token(payload.token, requests.Request(), audience=FIREBASE_PROJECT_ID, clock_skew_in_seconds=300)
+        print(f"[GITHUB AUTH] Starting authentication with token...")
+        
+        # Verifikojmë Firebase ID Token
+        idinfo = id_token.verify_firebase_token(
+            payload.token, 
+            requests.Request(), 
+            audience=FIREBASE_PROJECT_ID, 
+            clock_skew_in_seconds=300
+        )
         
         github_email = idinfo.get('email', '')
-        # Nëse GH nuk jep email publik, ne mund të duhet t'i japim një fallback
         if not github_email:
             github_email = idinfo.get('uid', '') + "@github.kapak.com"
 
         github_name = idinfo.get('name', '')
         
+        print(f"[GITHUB AUTH] Token verified. Email: {github_email}, Name: {github_name}")
+        
+        if not github_email:
+            raise ValueError("GitHub token nuk përmban email ose UID")
+        
         user = db.query(User).filter(User.email == github_email).first()
         
         if not user:
-            import re
+            print(f"[GITHUB AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
+            
             base_username = github_email.split('@')[0]
             base_username = base_username[:40]
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
+            
             existing_user = db.query(User).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
-                
+            
+            print(f"[GITHUB AUTH] Përpiqem të krijohet përdorues me username: {base_username}")
+            
             user = User(
                 username=base_username,
                 email=github_email,
                 hashed_password=hash_password(str(uuid.uuid4())),
-                display_name=github_name,
+                display_name=github_name or base_username,
                 is_verified=True
             )
             db.add(user)
             db.commit()
             db.refresh(user)
             
+            print(f"[GITHUB AUTH] Përdoruesi u krijua me ID: {user.id}")
+        else:
+            print(f"[GITHUB AUTH] Përdoruesi ekziston me ID: {user.id}")
+        
+        # Krijoni JWT token
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
@@ -270,13 +312,23 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 "role": user.role.value,
             }
         )
+        
+        print(f"[GITHUB AUTH] Token u gjenera me sukses")
         return {"access_token": access_token, "token_type": "bearer"}
         
     except ValueError as e:
-        print(f"Gabim në validimin e tokenit të GitHub: {e}")
+        print(f"[GITHUB AUTH ERROR] ValueError: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Validimi me GitHub dështoi",
+            detail=f"Validimi me GitHub dështoi: {str(e)}",
+        )
+    except Exception as e:
+        print(f"[GITHUB AUTH ERROR] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Gabim i brendshëm: {str(e)}",
         )
 
 @router.post("/forgot-password")
