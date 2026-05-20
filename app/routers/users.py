@@ -4,8 +4,11 @@ Endpoints: profile view, profile update, change password, list users, admin acti
 """
 
 from typing import List
+import os
+import shutil
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -107,6 +110,35 @@ def change_password(
     db.commit()
 
     return {"message": "Password changed successfully"}
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload a profile avatar.
+    """
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File provided is not an image.",
+        )
+    
+    file_extension = file.filename.split(".")[-1]
+    filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+    file_path = os.path.join("uploads", "avatars", filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    current_user.avatar_url = f"/uploads/avatars/{filename}"
+    db.commit()
+    db.refresh(current_user)
+    
+    return current_user
 
 
 @router.delete("/me", status_code=status.HTTP_200_OK)

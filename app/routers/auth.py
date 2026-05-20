@@ -63,6 +63,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
+        tenant_id=user_data.tenant_id,
     )
     db.add(new_user)
     db.commit()
@@ -138,6 +139,7 @@ def login(
             "sub": str(user.id),
             "username": user.username,
             "role": user.role.value,
+            "tenant_id": user.tenant_id,
         }
     )
 
@@ -158,6 +160,7 @@ FIREBASE_PROJECT_ID = "kapak-3af75"
 
 class GoogleAuthRequest(BaseModel):
     token: str
+    tenant_id: str = "default"
 
 @router.post("/google")
 def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
@@ -178,6 +181,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
         
         google_email = idinfo.get('email', '')
         google_name = idinfo.get('name', '')
+        google_avatar = idinfo.get('picture', '')
         
         print(f"[GOOGLE AUTH] Token verified. Email: {google_email}, Name: {google_name}")
         
@@ -206,7 +210,9 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 email=google_email,
                 hashed_password=hash_password(str(uuid.uuid4())),
                 display_name=google_name or base_username,
-                is_verified=True
+                avatar_url=google_avatar,
+                is_verified=True,
+                tenant_id=payload.tenant_id
             )
             db.add(user)
             db.commit()
@@ -215,6 +221,9 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             print(f"[GOOGLE AUTH] Përdoruesi u krijua me ID: {user.id}")
         else:
             print(f"[GOOGLE AUTH] Përdoruesi ekziston me ID: {user.id}")
+            if google_avatar and not user.avatar_url:
+                user.avatar_url = google_avatar
+                db.commit()
         
         # 4. Krijoni JWT token
         access_token = create_access_token(
@@ -222,6 +231,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 "sub": str(user.id),
                 "username": user.username,
                 "role": user.role.value,
+                "tenant_id": user.tenant_id,
             }
         )
         
@@ -245,6 +255,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
 
 class GithubAuthRequest(BaseModel):
     token: str
+    tenant_id: str = "default"
 
 @router.post("/github")
 def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
@@ -268,6 +279,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             github_email = idinfo.get('uid', '') + "@github.kapak.com"
 
         github_name = idinfo.get('name', '')
+        github_avatar = idinfo.get('picture', '')
         
         print(f"[GITHUB AUTH] Token verified. Email: {github_email}, Name: {github_name}")
         
@@ -294,7 +306,9 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 email=github_email,
                 hashed_password=hash_password(str(uuid.uuid4())),
                 display_name=github_name or base_username,
-                is_verified=True
+                avatar_url=github_avatar,
+                is_verified=True,
+                tenant_id=payload.tenant_id
             )
             db.add(user)
             db.commit()
@@ -303,6 +317,9 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             print(f"[GITHUB AUTH] Përdoruesi u krijua me ID: {user.id}")
         else:
             print(f"[GITHUB AUTH] Përdoruesi ekziston me ID: {user.id}")
+            if github_avatar and not user.avatar_url:
+                user.avatar_url = github_avatar
+                db.commit()
         
         # Krijoni JWT token
         access_token = create_access_token(
@@ -310,6 +327,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 "sub": str(user.id),
                 "username": user.username,
                 "role": user.role.value,
+                "tenant_id": user.tenant_id,
             }
         )
         

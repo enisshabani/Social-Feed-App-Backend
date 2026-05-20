@@ -16,6 +16,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=100)
     display_name: Optional[str] = Field(None, max_length=100)
+    tenant_id: Optional[str] = Field("default", max_length=50)
 
 
 class UserLogin(BaseModel):
@@ -59,6 +60,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     is_verified: bool
+    tenant_id: str
     created_at: datetime
 
     class Config:
@@ -93,3 +95,4 @@ class TokenData(BaseModel):
     user_id: Optional[int] = None
     username: Optional[str] = None
     role: Optional[str] = None
+    tenant_id: Optional[str] = None

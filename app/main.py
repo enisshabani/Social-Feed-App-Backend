@@ -1,12 +1,17 @@
 import logging
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
 from app.core.middleware import logging_middleware
+
+# Krijohet direktoria përpara se FastAPI të bëjë mount StaticFiles
+os.makedirs("uploads/avatars", exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +60,7 @@ app.add_middleware(
 
 app.middleware("http")(logging_middleware)
 
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ─── Routers ────────────────────────────────────────────────
 # Personi 1 - Auth & Users
