@@ -12,6 +12,8 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import uuid
 import re
+import random
+import string
 
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
@@ -22,6 +24,7 @@ from app.schemas.user import (
     UserResponse,
     Token,
     ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
 from app.core.email import send_reset_password_email, create_super_simple_token
 
@@ -31,6 +34,7 @@ router = APIRouter()
 LOGIN_ATTEMPTS = {}
 MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
+RESET_TOKENS = {}
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -356,21 +360,34 @@ async def forgot_password(
 ):
     """
     Kërkesë për rishkrim të fjalëkalimit.
-    Lidhet me backend-in për të parë nëse ekziston emaili.
-    Nuk kthen gabim nëse emaili nuk ekziston (për arsye sigurie/enumerimi).
-    Nëse gjendet, këtu do të shtohej logjika e dërgimit të email-it.
+    Kthen një kod 6-shifror për frontendin.
     """
     user = db.query(User).filter(User.email == request.email).first()
 
     if not user:
-        # Për siguri, shpesh këshillohet të kthehet i njëjti mesazh suksesi
-        # në mënyrë që hakerat të mos mund të gjejnë se cili email ekziston.
-        pass
-    else:
-        # Përdoruesi u gjet në DB! Tani dërgojmë emailin me Token tek kutia tij
-        reset_token = create_super_simple_token()
+        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit është gjeneruar."}
+    
+    reset_code = ''.join(random.choices(string.digits, k=6))
+    RESET_TOKENS[reset_code] = user.email
 
-        # Përderisa kjo kërkon async ne duhet ti definojmë funskionin 'forgot_password' me **async def**
-        await send_reset_password_email(email_to=user.email, reset_token=reset_token)
+    return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit është gjeneruar.", "code": reset_code}
 
-    return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një link për rishkrimin e fjalëkalimit është dërguar."}
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    email = RESET_TOKENS.get(request.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Kodi është i pasaktë ose ka skaduar.")
+        
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Përdoruesi nuk u gjet.")
+        
+    user.hashed_password = hash_password(request.new_password)
+    db.commit()
+    
+    del RESET_TOKENS[request.token]
+    
+    return {"message": "Fjalëkalimi u ndryshua me sukses!"}
