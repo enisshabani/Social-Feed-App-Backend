@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user 
+from app.core.dependencies import get_current_user
+from app.core.hashtag_utils import extract_hashtags, link_hashtags_to_post
 from app.models.user import User
 from app.models.post import Post, Comment, Like, Repost
 from app.schemas.post import (
@@ -36,6 +37,11 @@ def create_post(
     new_post = Post(content=post.content, author_id=current_user.id)
     db.add(new_post)
     db.commit()
+    db.refresh(new_post)
+
+    hashtags = extract_hashtags(new_post.content)
+    if hashtags:
+        link_hashtags_to_post(new_post.id, hashtags, db, current_user.tenant_id)
     db.refresh(new_post)
     return new_post
 

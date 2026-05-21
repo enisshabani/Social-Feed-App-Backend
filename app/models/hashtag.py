@@ -14,7 +14,7 @@ class Hashtag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, nullable=False, index=True)
-    post_count = Column(Integer, default=0, nullable=False)
+    mention_count = Column(Integer, default=0, nullable=False)
 
     tenant_id = Column(String(50), default="default", index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

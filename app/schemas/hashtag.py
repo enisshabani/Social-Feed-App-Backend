@@ -15,7 +15,7 @@ class HashtagCreate(BaseModel):
 class HashtagResponse(BaseModel):
     id: int
     name: str
-    post_count: int
+    mention_count: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
