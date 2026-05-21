@@ -69,9 +69,13 @@ from app.routers import auth, users
 # Personi 2 - Posts & Feed
 from app.routers import posts
 
+# Personi 4 - Search & Hashtags
+from app.routers import hashtags
+
 app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
 app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
+app.include_router(hashtags.router,      prefix="/api/v1/hashtags",      tags=["Hashtags"])
 
 @app.get("/", tags=["Root"])
 async def root():
