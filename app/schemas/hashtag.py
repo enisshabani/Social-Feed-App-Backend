@@ -21,6 +21,27 @@ class HashtagResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class HashtagHistoryItem(BaseModel):
+    day: str
+    uses: int
+    accounts: int
+
+
+class HashtagTrendingResponse(HashtagResponse):
+    history: list[HashtagHistoryItem] = []
+
+
+class TrendingPostResponse(BaseModel):
+    id: int
+    content: str
+    author_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    interaction_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ContentHashtagResponse(BaseModel):
     id: int
     hashtag_id: int
