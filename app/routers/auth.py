@@ -4,7 +4,8 @@ Endpoints: register, login, refresh token, me.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks
+
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
@@ -28,12 +29,13 @@ from app.schemas.user import (
     ResetPasswordRequest,
     RefreshTokenRequest,
 )
-from app.core.email import send_reset_password_email, create_super_simple_token
+from app.core.email import send_reset_password_email, send_verification_email, create_super_simple_token
 import pyotp
 import qrcode
 import io
 import base64
 import json
+
 
 router = APIRouter()
 
@@ -42,9 +44,10 @@ LOGIN_ATTEMPTS = {}
 MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 RESET_TOKENS = {}
+VERIFICATION_TOKENS = {}
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
+def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Register a new user account.
     
@@ -68,19 +71,41 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
             detail="Email already registered",
         )
 
-    # Create new user
     new_user = User(
         username=user_data.username,
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
         tenant_id=user_data.tenant_id,
+        is_verified=False,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
+    # Dërgojmë email-in e verifikimit në background
+    verification_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+    VERIFICATION_TOKENS[verification_token] = new_user.email
+    background_tasks.add_task(send_verification_email, new_user.email, verification_token)
+
     return new_user
+
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    email = VERIFICATION_TOKENS.get(token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
+        
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Përdoruesi nuk u gjet.")
+        
+    user.is_verified = True
+    db.commit()
+    
+    del VERIFICATION_TOKENS[token]
+    
+    return {"message": "Email-i juaj u verifikua me sukses!"}
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -442,21 +467,24 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """
     Kërkesë për rishkrim të fjalëkalimit.
-    Kthen një kod 6-shifror për frontendin.
+    Dërgon një email me linkun.
     """
     user = db.query(User).filter(User.email == request.email).first()
 
     if not user:
-        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit është gjeneruar."}
+        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}
     
     reset_code = ''.join(random.choices(string.digits, k=6))
     RESET_TOKENS[reset_code] = user.email
 
-    return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit është gjeneruar.", "code": reset_code}
+    background_tasks.add_task(send_reset_password_email, user.email, reset_code)
+
+    return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}
 
 @router.post("/reset-password")
 async def reset_password(
