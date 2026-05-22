@@ -3,7 +3,7 @@ KaPak - Posts Router
 API Endpoints for creating, editing, deleting, liking, bookmarking, and commenting on posts.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -20,6 +20,8 @@ from app.schemas.post import (
 )
 from app.services.post_service import PostService
 from app.services.ai_service import AIService
+from app.services.background_tasks import BackgroundTasksService
+
 
 
 router = APIRouter()
@@ -38,6 +40,7 @@ def _invalidate_feed_cache(tenant_id: str, user_id: Optional[int] = None):
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 def create_post(
     post: PostCreate,
+    background_tasks: BackgroundTasks,
     x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -47,6 +50,12 @@ def create_post(
     """
     service = PostService(db)
     new_post = service.create_post(post, current_user.id, x_tenant_id)
+    
+    # Trigger background tasks
+    background_tasks.add_task(BackgroundTasksService.fanout_post_to_followers, new_post.id, current_user.id, x_tenant_id, db)
+    background_tasks.add_task(BackgroundTasksService.process_media_attachments, new_post.id, x_tenant_id, db)
+    background_tasks.add_task(BackgroundTasksService.process_mentions_and_notifications, new_post.id, post.content, x_tenant_id, db)
+
     _invalidate_feed_cache(x_tenant_id, current_user.id)
     return new_post
 
