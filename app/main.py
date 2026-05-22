@@ -43,6 +43,11 @@ app = FastAPI(
         "Built as a university project for Distributed Systems 2025/26."
     ),
     version=settings.APP_VERSION,
+    contact={
+        "name": "KaPak Team",
+        "url": "https://github.com/kapak",
+        "email": "contact@kapak.local",
+    },
     docs_url="/docs",           
     redoc_url="/redoc",         
     openapi_url="/openapi.json",
@@ -72,10 +77,16 @@ from app.routers import posts
 # Personi 4 - Search & Hashtags
 from app.routers import hashtags
 
+# Personi 3 - Follows & Notifications
+from app.modules.follows.router import router as follows_router
+from app.modules.notifications.router import router as notifications_router
+
 app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
 app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
 app.include_router(hashtags.router,      prefix="/api/v1/hashtags",      tags=["Hashtags"])
+app.include_router(follows_router,       prefix="/api/v1")
+app.include_router(notifications_router, prefix="/api/v1")
 
 @app.get("/", tags=["Root"])
 async def root():
