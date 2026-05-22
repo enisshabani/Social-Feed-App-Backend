@@ -49,6 +49,10 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(..., min_length=6, max_length=100)
 
+class RefreshTokenRequest(BaseModel):
+    """Schema for requesting new access token via refresh token."""
+    refresh_token: str
+
 # ─── Response Schemas ───────────────────────────────────────
 
 class UserResponse(BaseModel):
@@ -91,6 +95,7 @@ class UserPublicResponse(BaseModel):
 class Token(BaseModel):
     """JWT token response."""
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
 
 
