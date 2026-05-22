@@ -16,7 +16,7 @@ import random
 import string
 
 from app.core.database import get_db
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import (
@@ -25,8 +25,19 @@ from app.schemas.user import (
     Token,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    RefreshTokenRequest,
+    LoginResponse,
+    TwoFactorSetupResponse,
+    TwoFactorVerifyRequest,
+    TwoFactorLoginRequest,
+    TwoFactorEnableResponse,
 )
 from app.core.email import send_reset_password_email, create_super_simple_token
+import pyotp
+import qrcode
+import io
+import base64
+import json
 
 router = APIRouter()
 
@@ -76,7 +87,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -137,6 +148,14 @@ def login(
             detail="Account is deactivated",
         )
 
+    # Check 2FA
+    if user.two_factor_enabled:
+        temp_token = create_access_token(
+            data={"sub": str(user.id), "is_2fa_temp": True},
+            expires_delta=timedelta(minutes=5)
+        )
+        return {"requires_2fa": True, "temp_token": temp_token}
+
     # Create access token
     access_token = create_access_token(
         data={
@@ -146,8 +165,13 @@ def login(
             "tenant_id": user.tenant_id,
         }
     )
+    refresh_token = create_refresh_token(
+        data={
+            "sub": str(user.id),
+        }
+    )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer", "requires_2fa": False}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -230,6 +254,13 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 db.commit()
         
         # 4. Krijoni JWT token
+        if user.two_factor_enabled:
+            temp_token = create_access_token(
+                data={"sub": str(user.id), "is_2fa_temp": True},
+                expires_delta=timedelta(minutes=5)
+            )
+            return {"requires_2fa": True, "temp_token": temp_token}
+
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
@@ -238,9 +269,14 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 "tenant_id": user.tenant_id,
             }
         )
+        refresh_token = create_refresh_token(
+            data={
+                "sub": str(user.id),
+            }
+        )
         
         print(f"[GOOGLE AUTH] Token u gjenera me sukses")
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
         
     except ValueError as e:
         print(f"[GOOGLE AUTH ERROR] ValueError: {str(e)}")
@@ -326,6 +362,13 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 db.commit()
         
         # Krijoni JWT token
+        if user.two_factor_enabled:
+            temp_token = create_access_token(
+                data={"sub": str(user.id), "is_2fa_temp": True},
+                expires_delta=timedelta(minutes=5)
+            )
+            return {"requires_2fa": True, "temp_token": temp_token}
+
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
@@ -334,9 +377,14 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 "tenant_id": user.tenant_id,
             }
         )
+        refresh_token = create_refresh_token(
+            data={
+                "sub": str(user.id),
+            }
+        )
         
         print(f"[GITHUB AUTH] Token u gjenera me sukses")
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
         
     except ValueError as e:
         print(f"[GITHUB AUTH ERROR] ValueError: {str(e)}")
@@ -389,5 +437,212 @@ async def reset_password(
     db.commit()
     
     del RESET_TOKENS[request.token]
-    
     return {"message": "Fjalëkalimi u ndryshua me sukses!"}
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    Kërkon një access token të ri duke përdorur një refresh token të vlefshëm.
+    """
+    try:
+        payload = verify_token(request.refresh_token)
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type",
+            )
+            
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+            )
+            
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive",
+            )
+            
+        # Create new access token
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role.value,
+                "tenant_id": user.tenant_id,
+            }
+        )
+        # Mund të rikthejmë të njëjtin refresh_token ose të gjenerojmë një të ri (refresh token rotation)
+        # Për thjeshtësi do e rikthejmë të njëjtin në këtë implementim, ose një të ri:
+        new_refresh_token = create_refresh_token(
+            data={
+                "sub": str(user.id),
+            }
+        )
+        
+        return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+@router.post("/login/2fa", response_model=LoginResponse)
+def login_2fa(request: TwoFactorLoginRequest, db: Session = Depends(get_db)):
+    """
+    Second step of login for users with 2FA enabled.
+    """
+    try:
+        payload = verify_token(request.temp_token)
+        if not payload.get("is_2fa_temp"):
+            raise HTTPException(status_code=401, detail="Invalid token type for 2FA")
+            
+        user_id = payload.get("sub")
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+            
+        # Verify code (TOTP or backup code)
+        is_valid = False
+        totp = pyotp.TOTP(user.two_factor_secret)
+        if totp.verify(request.code):
+            is_valid = True
+        else:
+            # Check backup codes
+            if user.backup_codes:
+                codes = json.loads(user.backup_codes)
+                if request.code in codes:
+                    is_valid = True
+                    codes.remove(request.code)
+                    user.backup_codes = json.dumps(codes)
+                    db.commit()
+                    
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid 2FA code")
+            
+        # Generate final tokens
+        access_token = create_access_token(
+            data={"sub": str(user.id), "username": user.username, "role": user.role.value, "tenant_id": user.tenant_id}
+        )
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer", "requires_2fa": False}
+        
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired temporary token")
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
+def setup_2fa(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Generates a new TOTP secret and returns the QR code.
+    Does NOT enable 2FA until verified.
+    """
+    if current_user.two_factor_enabled:
+        raise HTTPException(status_code=400, detail="2FA is already enabled")
+        
+    secret = pyotp.random_base32()
+    # Save the secret temporarily. To be completely safe, some systems store this in a temporary column or cache.
+    # We will just overwrite the user's secret, but keep enabled=False.
+    current_user.two_factor_secret = secret
+    db.commit()
+    
+    totp = pyotp.TOTP(secret)
+    # Issuer name can be configured
+    provisioning_uri = totp.provisioning_uri(name=current_user.email, issuer_name="KaPak")
+    
+    # Generate QR Code image
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    
+    return {
+        "secret": secret,
+        "qr_code_url": f"data:image/png;base64,{img_str}"
+    }
+
+
+@router.post("/2fa/enable", response_model=TwoFactorEnableResponse)
+def enable_2fa(request: TwoFactorVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Verifies the code and enables 2FA if correct.
+    Returns backup codes.
+    """
+    if current_user.two_factor_enabled:
+        raise HTTPException(status_code=400, detail="2FA is already enabled")
+        
+    if not current_user.two_factor_secret:
+        raise HTTPException(status_code=400, detail="You must setup 2FA first")
+        
+    totp = pyotp.TOTP(current_user.two_factor_secret)
+    if not totp.verify(request.code):
+        raise HTTPException(status_code=400, detail="Invalid authentication code")
+        
+    # Enable 2FA
+    current_user.two_factor_enabled = True
+    
+    # Generate 10 backup codes (each 8 characters alphanumeric)
+    backup_codes = [''.join(random.choices(string.ascii_uppercase + string.digits, k=8)) for _ in range(10)]
+    current_user.backup_codes = json.dumps(backup_codes)
+    
+    db.commit()
+    return {"message": "Two-factor authentication enabled successfully", "backup_codes": backup_codes}
+
+
+@router.post("/2fa/disable")
+def disable_2fa(request: TwoFactorVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Disables 2FA. Requires a valid TOTP or backup code to confirm.
+    """
+    if not current_user.two_factor_enabled:
+        raise HTTPException(status_code=400, detail="2FA is not enabled")
+        
+    is_valid = False
+    if current_user.two_factor_secret:
+        totp = pyotp.TOTP(current_user.two_factor_secret)
+        if totp.verify(request.code):
+            is_valid = True
+            
+    if not is_valid and current_user.backup_codes:
+        codes = json.loads(current_user.backup_codes)
+        if request.code in codes:
+            is_valid = True
+            
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid authentication code")
+        
+    current_user.two_factor_enabled = False
+    current_user.two_factor_secret = None
+    current_user.backup_codes = None
+    db.commit()
+    
+    return {"message": "Two-factor authentication disabled"}
+
+
+@router.post("/2fa/recovery-codes", response_model=TwoFactorEnableResponse)
+def generate_recovery_codes(request: TwoFactorVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Generates new recovery codes, invalidating the old ones.
+    Requires a valid TOTP code to authorize.
+    """
+    if not current_user.two_factor_enabled:
+        raise HTTPException(status_code=400, detail="2FA is not enabled")
+        
+    totp = pyotp.TOTP(current_user.two_factor_secret)
+    if not totp.verify(request.code):
+        raise HTTPException(status_code=400, detail="Invalid authentication code")
+        
+    backup_codes = [''.join(random.choices(string.ascii_uppercase + string.digits, k=8)) for _ in range(10)]
+    current_user.backup_codes = json.dumps(backup_codes)
+    db.commit()
+    
+    return {"message": "New recovery codes generated successfully", "backup_codes": backup_codes}
