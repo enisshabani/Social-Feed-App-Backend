@@ -264,10 +264,9 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
         else:
             print(f"[GOOGLE AUTH] Përdoruesi ekziston me ID: {user.id}")
             if not user.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Kjo llogari është fshirë ose çaktivizuar. Ju lutem kontaktoni administratorin.",
-                )
+                print(f"[GOOGLE AUTH] Llogaria requires reactivation. Reactivating user ID: {user.id}")
+                user.is_active = True
+                db.commit()
             if google_avatar and not user.avatar_url:
                 user.avatar_url = google_avatar
                 db.commit()
