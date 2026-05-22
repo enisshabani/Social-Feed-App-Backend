@@ -1,69 +1,141 @@
 """
-KaPak - Posts & Feed Router
-API Endpoints for Posts, Comments, Likes, Feed, Search and Filtering.
+KaPak - Posts Router
+API Endpoints for creating, editing, deleting, liking, bookmarking, and commenting on posts.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.core.hashtag_utils import extract_hashtags, link_hashtags_to_post
+from app.core.cache import cache_service
 from app.models.user import User
-from app.models.post import Post, Comment, Like, Repost
 from app.schemas.post import (
-    PostCreate, PostUpdate, PostResponse, 
-    CommentCreate, CommentResponse, 
-    LikeCreate, LikeResponse,
-    RepostCreate, RepostResponse
+    PostCreate, PostUpdate, PostResponse, PostBriefResponse,
+    CommentCreate, CommentResponse,
+    DraftCreate, DraftUpdate, DraftResponse,
+    SavedPostResponse, PostEditHistoryResponse,
+    AIRefineRequest, AIRefineResponse
 )
+from app.services.post_service import PostService
+from app.services.ai_service import AIService
+from app.services.background_tasks import BackgroundTasksService
+
+
 
 router = APIRouter()
 
+# Helper to invalidate cached timeline and explore feeds when updates happen
+def _invalidate_feed_cache(tenant_id: str, user_id: Optional[int] = None):
+    cache_service.invalidate_prefix(f"feed:{tenant_id}")
+    if user_id:
+        cache_service.invalidate_prefix(f"timeline:{tenant_id}:{user_id}")
+
+
 # ==========================================
-# POST ENDPOINTS
+# POST CRUD ENDPOINTS
 # ==========================================
 
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 def create_post(
-    post: PostCreate, 
+    post: PostCreate,
+    background_tasks: BackgroundTasks,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Create a new post for the authenticated user.
+    Create a new post. Automatically parses hashtags and @mentions into HTML formatting.
     """
-    new_post = Post(content=post.content, author_id=current_user.id)
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
+    service = PostService(db)
+    new_post = service.create_post(post, current_user.id, x_tenant_id)
+    
+    # Trigger background tasks
+    background_tasks.add_task(BackgroundTasksService.fanout_post_to_followers, new_post.id, current_user.id, x_tenant_id, db)
+    background_tasks.add_task(BackgroundTasksService.process_media_attachments, new_post.id, x_tenant_id, db)
+    background_tasks.add_task(BackgroundTasksService.process_mentions_and_notifications, new_post.id, post.content, x_tenant_id, db)
 
-    hashtags = extract_hashtags(new_post.content)
-    if hashtags:
-        link_hashtags_to_post(new_post.id, hashtags, db, current_user.tenant_id)
-    db.refresh(new_post)
+    _invalidate_feed_cache(x_tenant_id, current_user.id)
     return new_post
 
 
-@router.get("/", response_model=List[PostResponse])
-def get_posts(
-    db: Session = Depends(get_db),
-    search: Optional[str] = Query(None, description="Search posts by content"),
-    limit: int = Query(10, ge=1, le=100),
-    skip: int = Query(0, ge=0)
+@router.get("/{post_id}", response_model=PostResponse)
+def get_post(
+    post_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db)
 ):
     """
-    Retrieve a paginated list of posts, optionally filtered by search text.
-    Ordered by creation date descending.
+    Fetch a single post by ID along with its author, comments, likes, reposts, and tags.
     """
-    query = db.query(Post)
+    # Check cache first
+    cache_key = f"post:{x_tenant_id}:{post_id}"
+    cached = cache_service.get(cache_key)
+    if cached:
+        return cached
+
+    service = PostService(db)
+    post = service.get_post(post_id, x_tenant_id)
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
     
-    if search:
-        query = query.filter(Post.content.ilike(f"%{search}%"))
-        
-    posts = query.order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
-    return posts
+    # Save to cache for 1 minute
+    post_data = PostResponse.model_validate(post).model_dump()
+    cache_service.set(cache_key, post_data, expire_seconds=60)
+    return post
+
+
+@router.put("/{post_id}", response_model=PostResponse)
+def update_post(
+    post_id: int,
+    post_update: PostUpdate,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Edit a post's content. Automatically updates parsed tags and records history.
+    """
+    service = PostService(db)
+    updated = service.update_post(post_id, post_update, current_user.id, x_tenant_id)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not update post (unauthorized or not found)"
+        )
+    
+    # Clear cache
+    cache_service.delete(f"post:{x_tenant_id}:{post_id}")
+    _invalidate_feed_cache(x_tenant_id, current_user.id)
+    return updated
+
+
+@router.delete("/{post_id}", status_code=status.HTTP_200_OK)
+def delete_post(
+    post_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a post. Triggers cascade deletion of comments, likes, media, and tags mapping.
+    """
+    service = PostService(db)
+    success = service.delete_post(post_id, current_user.id, x_tenant_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not delete post (unauthorized or not found)"
+        )
+
+    # Invalidate cache
+    cache_service.delete(f"post:{x_tenant_id}:{post_id}")
+    _invalidate_feed_cache(x_tenant_id, current_user.id)
+    return {"message": "Post deleted successfully"}
 
 
 # ==========================================
@@ -71,73 +143,196 @@ def get_posts(
 # ==========================================
 
 @router.post("/{post_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
-def create_comment(
+def add_comment(
     post_id: int,
-    comment: CommentCreate, 
+    comment: CommentCreate,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Add a comment to a specific post.
-    Raises 404 if the post does not exist.
     """
-    post = db.query(Post).filter(Post.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-        
-    new_comment = Comment(content=comment.content, post_id=post_id, author_id=current_user.id)
-    db.add(new_comment)
-    db.commit()
-    db.refresh(new_comment)
+    service = PostService(db)
+    new_comment = service.add_comment(post_id, comment, current_user.id, x_tenant_id)
+    if not new_comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
+    
+    # Invalidate cached post detail and feeds
+    cache_service.delete(f"post:{x_tenant_id}:{post_id}")
+    _invalidate_feed_cache(x_tenant_id)
     return new_comment
+
+
+@router.delete("/comments/{comment_id}", status_code=status.HTTP_200_OK)
+def remove_comment(
+    comment_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a comment by ID (must be comment author).
+    """
+    service = PostService(db)
+    success = service.remove_comment(comment_id, current_user.id, x_tenant_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not delete comment (unauthorized or not found)"
+        )
+    
+    _invalidate_feed_cache(x_tenant_id)
+    return {"message": "Comment removed successfully"}
 
 
 # ==========================================
 # LIKE AND REPOST ENDPOINTS
 # ==========================================
 
-@router.post("/{post_id}/like", status_code=status.HTTP_201_CREATED)
+@router.post("/{post_id}/like", status_code=status.HTTP_200_OK)
 def like_post(
-    post_id: int, 
+    post_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Toggle a like on a post. 
-    If already liked, removes the like. If not, adds the like.
+    Toggle a like on a post. Safe, idempotent, and updates denormalized like counters.
     """
-    post = db.query(Post).filter(Post.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-        
-    existing_like = db.query(Like).filter(Like.post_id == post_id, Like.user_id == current_user.id).first()
+    service = PostService(db)
+    liked, message = service.toggle_like(post_id, current_user.id, x_tenant_id)
     
-    if existing_like:
-        db.delete(existing_like)
-        db.commit()
-        return {"message": "Like removed"}
-    else:
-        new_like = Like(post_id=post_id, user_id=current_user.id)
-        db.add(new_like)
-        db.commit()
-        return {"message": "Like added"}
+    # Invalidate cache
+    cache_service.delete(f"post:{x_tenant_id}:{post_id}")
+    _invalidate_feed_cache(x_tenant_id)
+    
+    return {"liked": liked, "message": message}
 
 
-@router.post("/{post_id}/repost", response_model=RepostResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{post_id}/repost", status_code=status.HTTP_200_OK)
 def repost_post(
-    post_id: int, 
+    post_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Repost an original post to the current user's feed.
+    Toggle a repost. If not reposted, shares it; if already reposted, deletes the repost post.
     """
-    post = db.query(Post).filter(Post.id == post_id).first()
+    service = PostService(db)
+    reposted, message = service.toggle_repost(post_id, current_user.id, x_tenant_id)
+    
+    # Invalidate cache
+    cache_service.delete(f"post:{x_tenant_id}:{post_id}")
+    _invalidate_feed_cache(x_tenant_id, current_user.id)
+    
+    return {"reposted": reposted, "message": message}
+
+
+# ==========================================
+# BOOKMARKS (SAVED POSTS) ENDPOINTS
+# ==========================================
+
+@router.post("/{post_id}/bookmark", status_code=status.HTTP_200_OK)
+def bookmark_post(
+    post_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Toggle bookmark (Saved Post) for a post.
+    """
+    service = PostService(db)
+    bookmarked, message = service.toggle_bookmark(post_id, current_user.id, x_tenant_id)
+    return {"bookmarked": bookmarked, "message": message}
+
+
+@router.get("/bookmarks/all", response_model=List[PostBriefResponse])
+def get_bookmarked_posts(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Fetch posts saved/bookmarked by the current user.
+    """
+    service = PostService(db)
+    return service.repo.list_saved_posts(current_user.id, x_tenant_id, skip, limit)
+
+
+# ==========================================
+# DRAFTS ENDPOINTS
+# ==========================================
+
+@router.post("/drafts/save", response_model=DraftResponse, status_code=status.HTTP_201_CREATED)
+def save_draft(
+    draft: DraftCreate,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Save post content as a draft.
+    """
+    service = PostService(db)
+    return service.create_draft(draft, current_user.id, x_tenant_id)
+
+
+@router.get("/drafts/all", response_model=List[DraftResponse])
+def list_drafts(
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all drafts saved by the current user.
+    """
+    service = PostService(db)
+    return service.repo.list_drafts(current_user.id, x_tenant_id)
+
+
+@router.post("/drafts/{draft_id}/publish", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+def publish_draft(
+    draft_id: int,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Convert a saved draft to a live post and delete the draft.
+    """
+    service = PostService(db)
+    post = service.publish_draft(draft_id, current_user.id, x_tenant_id)
     if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-        
-    new_repost = Repost(original_post_id=post_id, user_id=current_user.id)
-    db.add(new_repost)
-    db.commit()
-    db.refresh(new_repost)
-    return new_repost
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Draft not found or unauthorized"
+        )
+    _invalidate_feed_cache(x_tenant_id, current_user.id)
+    return post
+
+
+# ==========================================
+# AI TEXT REFINEMENT ENDPOINT
+# ==========================================
+
+@router.post("/refine-ai", response_model=AIRefineResponse, status_code=status.HTTP_200_OK)
+def refine_post_text(
+    request_data: AIRefineRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Refine post content text before publishing using OpenAI GPT models.
+    Supports styles: 'casual', 'professional', 'witty', 'concise'.
+    """
+    ai_service = AIService()
+    refined = ai_service.refine_text(request_data.content, request_data.style)
+    return AIRefineResponse(refined_content=refined)
+

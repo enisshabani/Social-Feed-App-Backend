@@ -72,7 +72,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 from app.routers import auth, users
 
 # Personi 2 - Posts & Feed
-from app.routers import posts
+from app.routers import posts, feeds
 
 # Personi 4 - Search & Hashtags
 from app.routers import hashtags
@@ -84,9 +84,7 @@ from app.modules.notifications.router import router as notifications_router
 app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
 app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
-app.include_router(hashtags.router,      prefix="/api/v1/hashtags",      tags=["Hashtags"])
-app.include_router(follows_router,       prefix="/api/v1")
-app.include_router(notifications_router, prefix="/api/v1")
+app.include_router(feeds.router,         prefix="/api/v1/feeds",         tags=["Feeds"])
 
 @app.get("/", tags=["Root"])
 async def root():
