@@ -15,9 +15,12 @@ from app.schemas.post import (
     PostCreate, PostUpdate, PostResponse, PostBriefResponse,
     CommentCreate, CommentResponse,
     DraftCreate, DraftUpdate, DraftResponse,
-    SavedPostResponse, PostEditHistoryResponse
+    SavedPostResponse, PostEditHistoryResponse,
+    AIRefineRequest, AIRefineResponse
 )
 from app.services.post_service import PostService
+from app.services.ai_service import AIService
+
 
 router = APIRouter()
 
@@ -305,3 +308,22 @@ def publish_draft(
         )
     _invalidate_feed_cache(x_tenant_id, current_user.id)
     return post
+
+
+# ==========================================
+# AI TEXT REFINEMENT ENDPOINT
+# ==========================================
+
+@router.post("/refine-ai", response_model=AIRefineResponse, status_code=status.HTTP_200_OK)
+def refine_post_text(
+    request_data: AIRefineRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Refine post content text before publishing using OpenAI GPT models.
+    Supports styles: 'casual', 'professional', 'witty', 'concise'.
+    """
+    ai_service = AIService()
+    refined = ai_service.refine_text(request_data.content, request_data.style)
+    return AIRefineResponse(refined_content=refined)
+

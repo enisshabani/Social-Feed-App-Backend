@@ -225,3 +225,16 @@ class SearchRequest(BaseModel):
     author_id: Optional[int] = None
     limit: int = Field(20, ge=1, le=100)
     offset: int = Field(0, ge=0)
+
+
+# ==========================================
+# AI REFINEMENT SCHEMAS
+# ==========================================
+
+class AIRefineRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+    style: str = "casual"
+
+class AIRefineResponse(BaseModel):
+    refined_content: str
+
