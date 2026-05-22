@@ -41,6 +41,11 @@ class User(Base):
     # Account status
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    
+    # Two-Factor Authentication
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)
+    two_factor_secret = Column(String(255), nullable=True)
+    backup_codes = Column(Text, nullable=True)
 
     # Multi-tenancy support
     tenant_id = Column(String(50), default="default", nullable=False, index=True)
