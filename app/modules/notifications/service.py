@@ -4,6 +4,7 @@ from typing import Optional
 
 from app.modules.notifications.models import Notification, NotificationType
 from app.modules.notifications.exceptions import NotificationNotFoundError, NotificationForbiddenError
+from app.core.redis import get_or_set_cache, invalidate_cache
 
 class NotificationService:
     def __init__(self, db: Session, tenant_id: str):
@@ -46,6 +47,7 @@ class NotificationService:
         notification = self._get_notification(notification_id, recipient_id)
         notification.is_read = True
         self.db.commit()
+        invalidate_cache(f"unread_count:{self.tenant_id}:{recipient_id}")
 
     def mark_all_as_read(self, recipient_id: int) -> None:
         self.db.query(Notification).filter(
@@ -54,15 +56,21 @@ class NotificationService:
             Notification.is_read == False
         ).update({"is_read": True})
         self.db.commit()
+        invalidate_cache(f"unread_count:{self.tenant_id}:{recipient_id}")
 
     def delete_notification(self, notification_id: str, recipient_id: int) -> None:
         notification = self._get_notification(notification_id, recipient_id)
         self.db.delete(notification)
         self.db.commit()
+        invalidate_cache(f"unread_count:{self.tenant_id}:{recipient_id}")
 
     def get_unread_count(self, recipient_id: int) -> int:
-        return self.db.query(func.count(Notification.id)).filter(
-            Notification.recipient_id == recipient_id,
-            Notification.tenant_id == self.tenant_id,
-            Notification.is_read == False
-        ).scalar() or 0
+        def fetch():
+            return self.db.query(func.count(Notification.id)).filter(
+                Notification.recipient_id == recipient_id,
+                Notification.tenant_id == self.tenant_id,
+                Notification.is_read == False
+            ).scalar() or 0
+            
+        key = f"unread_count:{self.tenant_id}:{recipient_id}"
+        return get_or_set_cache(key, 120, fetch)
