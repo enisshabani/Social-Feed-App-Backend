@@ -4,6 +4,7 @@ from typing import List
 
 from app.modules.follows.models import Follow
 from app.modules.follows.exceptions import AlreadyFollowingError, NotFollowingError, SelfFollowError
+from app.core.redis import get_or_set_cache, invalidate_cache
 
 class FollowService:
     def __init__(self, db: Session, tenant_id: str):
@@ -31,6 +32,12 @@ class FollowService:
         self.db.add(new_follow)
         self.db.commit()
         self.db.refresh(new_follow)
+        
+        # Invalidate caches
+        invalidate_cache(f"follow_counts:{self.tenant_id}:{follower_id}")
+        invalidate_cache(f"follow_counts:{self.tenant_id}:{followee_id}")
+        invalidate_cache(f"is_following:{self.tenant_id}:{follower_id}:{followee_id}")
+        
         return new_follow
 
     def unfollow_user(self, follower_id: int, followee_id: int) -> None:
@@ -48,6 +55,11 @@ class FollowService:
             
         self.db.delete(existing)
         self.db.commit()
+        
+        # Invalidate caches
+        invalidate_cache(f"follow_counts:{self.tenant_id}:{follower_id}")
+        invalidate_cache(f"follow_counts:{self.tenant_id}:{followee_id}")
+        invalidate_cache(f"is_following:{self.tenant_id}:{follower_id}:{followee_id}")
 
     def get_followers(self, user_id: int, skip: int = 0, limit: int = 50) -> List[Follow]:
         return self.db.query(Follow).filter(
@@ -62,25 +74,33 @@ class FollowService:
         ).offset(skip).limit(limit).all()
 
     def get_follow_counts(self, user_id: int) -> dict:
-        followers_count = self.db.query(func.count(Follow.id)).filter(
-            Follow.followee_id == user_id,
-            Follow.tenant_id == self.tenant_id
-        ).scalar() or 0
-        
-        following_count = self.db.query(func.count(Follow.id)).filter(
-            Follow.follower_id == user_id,
-            Follow.tenant_id == self.tenant_id
-        ).scalar() or 0
-        
-        return {
-            "followers_count": followers_count,
-            "following_count": following_count
-        }
+        def fetch():
+            followers_count = self.db.query(func.count(Follow.id)).filter(
+                Follow.followee_id == user_id,
+                Follow.tenant_id == self.tenant_id
+            ).scalar() or 0
+            
+            following_count = self.db.query(func.count(Follow.id)).filter(
+                Follow.follower_id == user_id,
+                Follow.tenant_id == self.tenant_id
+            ).scalar() or 0
+            
+            return {
+                "followers_count": followers_count,
+                "following_count": following_count
+            }
+
+        key = f"follow_counts:{self.tenant_id}:{user_id}"
+        return get_or_set_cache(key, 300, fetch)
 
     def is_following(self, follower_id: int, followee_id: int) -> bool:
-        existing = self.db.query(Follow).filter(
-            Follow.follower_id == follower_id,
-            Follow.followee_id == followee_id,
-            Follow.tenant_id == self.tenant_id
-        ).first()
-        return existing is not None
+        def fetch():
+            existing = self.db.query(Follow).filter(
+                Follow.follower_id == follower_id,
+                Follow.followee_id == followee_id,
+                Follow.tenant_id == self.tenant_id
+            ).first()
+            return existing is not None
+
+        key = f"is_following:{self.tenant_id}:{follower_id}:{followee_id}"
+        return get_or_set_cache(key, 120, fetch)
