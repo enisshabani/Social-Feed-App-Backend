@@ -1,71 +1,80 @@
 """
 KaPak - Posts & Feed Schemas
-Pydantic models for data validation and API payloads.
+Pydantic models for data validation and API request/response payloads.
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+from app.schemas.user import UserPublicResponse
+
 
 # ==========================================
-# POST SCHEMAS
+# MEDIA SCHEMAS
 # ==========================================
-class PostBase(BaseModel):
-    content: str
 
-class PostCreate(PostBase):
-    pass
+class MediaCreate(BaseModel):
+    url: str
+    media_type: str = "image"
+    meta: Optional[dict] = None
 
-class PostUpdate(BaseModel):
-    content: Optional[str] = None
-
-class PostResponse(PostBase):
+class MediaResponse(BaseModel):
     id: int
-    author_id: int
+    post_id: int
+    url: str
+    media_type: str
+    meta: Optional[dict] = None
     created_at: datetime
-    updated_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# TAG SCHEMAS
+# ==========================================
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 # ==========================================
 # COMMENT SCHEMAS
 # ==========================================
-class CommentBase(BaseModel):
+
+class CommentCreate(BaseModel):
+    content: str
+
+class CommentResponse(BaseModel):
+    id: int
     content: str
     post_id: int
-
-class CommentCreate(CommentBase):
-    pass
-
-class CommentResponse(CommentBase):
-    id: int
     author_id: int
+    author: Optional[UserPublicResponse] = None
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 # ==========================================
 # LIKE SCHEMAS
 # ==========================================
-class LikeCreate(BaseModel):
-    post_id: Optional[int] = None
-    comment_id: Optional[int] = None
 
 class LikeResponse(BaseModel):
     id: int
     user_id: int
-    post_id: Optional[int]
-    comment_id: Optional[int]
+    post_id: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # ==========================================
 # REPOST SCHEMAS
 # ==========================================
-class RepostCreate(BaseModel):
-    original_post_id: int
 
 class RepostResponse(BaseModel):
     id: int
@@ -74,3 +83,145 @@ class RepostResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# POST SCHEMAS
+# ==========================================
+
+class PostCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+    visibility: str = "public"
+    reply_to_post_id: Optional[int] = None
+
+class PostUpdate(BaseModel):
+    content: Optional[str] = Field(None, min_length=1, max_length=5000)
+    visibility: Optional[str] = None
+
+class PostResponse(BaseModel):
+    id: int
+    content: str
+    content_html: Optional[str] = None
+    author_id: int
+    author: Optional[UserPublicResponse] = None
+    visibility: str
+    reply_to_post_id: Optional[int] = None
+    is_repost: bool = False
+    original_post_id: Optional[int] = None
+    like_count: int = 0
+    reply_count: int = 0
+    repost_count: int = 0
+    tenant_id: str = "default"
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    comments: List[CommentResponse] = []
+    likes: List[LikeResponse] = []
+    reposts: List[RepostResponse] = []
+    media: List[MediaResponse] = []
+    tags: List[TagResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PostBriefResponse(BaseModel):
+    """Lighter version of PostResponse for feed listings."""
+    id: int
+    content: str
+    author_id: int
+    author: Optional[UserPublicResponse] = None
+    visibility: str
+    is_repost: bool = False
+    original_post_id: Optional[int] = None
+    like_count: int = 0
+    reply_count: int = 0
+    repost_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# DRAFT SCHEMAS
+# ==========================================
+
+class DraftCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+class DraftUpdate(BaseModel):
+    content: Optional[str] = Field(None, min_length=1, max_length=5000)
+
+class DraftResponse(BaseModel):
+    id: int
+    content: str
+    author_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# SAVED POST (BOOKMARK) SCHEMAS
+# ==========================================
+
+class SavedPostResponse(BaseModel):
+    id: int
+    user_id: int
+    post_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# POST EDIT HISTORY SCHEMAS
+# ==========================================
+
+class PostEditHistoryResponse(BaseModel):
+    id: int
+    post_id: int
+    old_content: str
+    new_content: str
+    edited_by: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# HASHTAG STATS SCHEMAS
+# ==========================================
+
+class HashtagStatsResponse(BaseModel):
+    id: int
+    tag_id: int
+    tag: Optional[TagResponse] = None
+    usage_count: int
+    period: str
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ==========================================
+# FEED / TIMELINE SCHEMAS
+# ==========================================
+
+class FeedResponse(BaseModel):
+    """Paginated feed response with cursor support."""
+    items: List[PostBriefResponse] = []
+    next_cursor: Optional[str] = None
+    has_more: bool = False
+
+
+# ==========================================
+# SEARCH SCHEMAS
+# ==========================================
+
+class SearchRequest(BaseModel):
+    q: Optional[str] = None
+    tags: Optional[str] = None
+    author_id: Optional[int] = None
+    limit: int = Field(20, ge=1, le=100)
+    offset: int = Field(0, ge=0)
