@@ -263,6 +263,11 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             print(f"[GOOGLE AUTH] Përdoruesi u krijua me ID: {user.id}")
         else:
             print(f"[GOOGLE AUTH] Përdoruesi ekziston me ID: {user.id}")
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Kjo llogari është fshirë ose çaktivizuar. Ju lutem kontaktoni administratorin.",
+                )
             if google_avatar and not user.avatar_url:
                 user.avatar_url = google_avatar
                 db.commit()
@@ -308,6 +313,8 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Validimi me Google dështoi: {str(e)}",
         )
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"[GOOGLE AUTH ERROR] Exception: {type(e).__name__}: {str(e)}")
         import traceback
@@ -427,6 +434,8 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Validimi me GitHub dështoi: {str(e)}",
         )
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"[GITHUB AUTH ERROR] Exception: {type(e).__name__}: {str(e)}")
         import traceback
