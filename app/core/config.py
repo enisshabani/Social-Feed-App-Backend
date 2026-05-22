@@ -16,12 +16,13 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/kapak"
+    DATABASE_URL: str = "postgresql://postgres.ivupxixbxyxddzgtvyet:Xa1qJVd6QgVkkpyy@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
     # JWT Authentication
     SECRET_KEY: str = "kapak-super-secret-key-change-in-production-2025"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 @lru_cache()

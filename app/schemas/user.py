@@ -16,6 +16,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=100)
     display_name: Optional[str] = Field(None, max_length=100)
+    tenant_id: Optional[str] = Field("default", max_length=50)
 
 
 class UserLogin(BaseModel):
@@ -43,6 +44,14 @@ class ForgotPasswordRequest(BaseModel):
     """Schema for forgot password request."""
     email: EmailStr
 
+class ResetPasswordRequest(BaseModel):
+    """Schema for reset password request."""
+    token: str
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+class RefreshTokenRequest(BaseModel):
+    """Schema for requesting new access token via refresh token."""
+    refresh_token: str
 
 # ─── Response Schemas ───────────────────────────────────────
 
@@ -59,6 +68,8 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     is_verified: bool
+    two_factor_enabled: bool = False
+    tenant_id: str
     created_at: datetime
 
     class Config:
@@ -85,6 +96,7 @@ class UserPublicResponse(BaseModel):
 class Token(BaseModel):
     """JWT token response."""
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
 
 
@@ -93,3 +105,34 @@ class TokenData(BaseModel):
     user_id: Optional[int] = None
     username: Optional[str] = None
     role: Optional[str] = None
+    tenant_id: Optional[str] = None
+    is_2fa_temp: Optional[bool] = False
+
+class LoginResponse(BaseModel):
+    """Custom response for login that might require 2FA."""
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
+    requires_2fa: bool = False
+    temp_token: Optional[str] = None
+    trusted_device_token: Optional[str] = None
+
+class TwoFactorVerifyRequest(BaseModel):
+    """Schema for verifying a 2FA code."""
+    code: str
+
+class TwoFactorLoginRequest(BaseModel):
+    """Schema for logging in with a 2FA code and temp token."""
+    temp_token: str
+    code: str
+    remember_device: bool = False
+
+class TwoFactorSetupResponse(BaseModel):
+    """Schema for returning 2FA setup details."""
+    secret: str
+    qr_code_url: str
+
+class TwoFactorEnableResponse(BaseModel):
+    """Schema for returning backup codes after enabling 2FA."""
+    message: str
+    backup_codes: list[str]
