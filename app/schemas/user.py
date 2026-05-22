@@ -115,6 +115,7 @@ class LoginResponse(BaseModel):
     token_type: Optional[str] = "bearer"
     requires_2fa: bool = False
     temp_token: Optional[str] = None
+    trusted_device_token: Optional[str] = None
 
 class TwoFactorVerifyRequest(BaseModel):
     """Schema for verifying a 2FA code."""
@@ -124,6 +125,7 @@ class TwoFactorLoginRequest(BaseModel):
     """Schema for logging in with a 2FA code and temp token."""
     temp_token: str
     code: str
+    remember_device: bool = False
 
 class TwoFactorSetupResponse(BaseModel):
     """Schema for returning 2FA setup details."""
