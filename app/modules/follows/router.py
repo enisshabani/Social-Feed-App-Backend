@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -8,6 +8,7 @@ from app.models.user import User
 
 from app.modules.follows.schemas import FollowResponse, FollowCountResponse, IsFollowingResponse
 from app.modules.follows.service import FollowService
+from app.workers.notification_worker import process_follow_notification
 
 router = APIRouter(
     prefix="/follows",
@@ -33,10 +34,20 @@ def get_follow_service(db: Session = Depends(get_db), current_user: User = Depen
 )
 def follow_user(
     user_id: int, 
+    background_tasks: BackgroundTasks,
     service: FollowService = Depends(get_follow_service),
     current_user: User = Depends(get_current_user)
 ):
-    return service.follow_user(follower_id=current_user.id, followee_id=user_id)
+    follow = service.follow_user(follower_id=current_user.id, followee_id=user_id)
+    
+    background_tasks.add_task(
+        process_follow_notification,
+        actor_id=current_user.id,
+        recipient_id=user_id,
+        tenant_id=current_user.tenant_id
+    )
+    
+    return follow
 
 @router.delete(
     "/{user_id}", 
