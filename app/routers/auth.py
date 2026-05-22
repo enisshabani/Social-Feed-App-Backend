@@ -16,7 +16,7 @@ import random
 import string
 
 from app.core.database import get_db
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import (
@@ -25,6 +25,7 @@ from app.schemas.user import (
     Token,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    RefreshTokenRequest,
 )
 from app.core.email import send_reset_password_email, create_super_simple_token
 
@@ -146,8 +147,13 @@ def login(
             "tenant_id": user.tenant_id,
         }
     )
+    refresh_token = create_refresh_token(
+        data={
+            "sub": str(user.id),
+        }
+    )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -238,9 +244,14 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 "tenant_id": user.tenant_id,
             }
         )
+        refresh_token = create_refresh_token(
+            data={
+                "sub": str(user.id),
+            }
+        )
         
         print(f"[GOOGLE AUTH] Token u gjenera me sukses")
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
         
     except ValueError as e:
         print(f"[GOOGLE AUTH ERROR] ValueError: {str(e)}")
@@ -334,9 +345,14 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 "tenant_id": user.tenant_id,
             }
         )
+        refresh_token = create_refresh_token(
+            data={
+                "sub": str(user.id),
+            }
+        )
         
         print(f"[GITHUB AUTH] Token u gjenera me sukses")
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
         
     except ValueError as e:
         print(f"[GITHUB AUTH ERROR] ValueError: {str(e)}")
@@ -389,5 +405,57 @@ async def reset_password(
     db.commit()
     
     del RESET_TOKENS[request.token]
-    
     return {"message": "Fjalëkalimi u ndryshua me sukses!"}
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    Kërkon një access token të ri duke përdorur një refresh token të vlefshëm.
+    """
+    try:
+        payload = verify_token(request.refresh_token)
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type",
+            )
+            
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+            )
+            
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive",
+            )
+            
+        # Create new access token
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role.value,
+                "tenant_id": user.tenant_id,
+            }
+        )
+        # Mund të rikthejmë të njëjtin refresh_token ose të gjenerojmë një të ri (refresh token rotation)
+        # Për thjeshtësi do e rikthejmë të njëjtin në këtë implementim, ose një të ri:
+        new_refresh_token = create_refresh_token(
+            data={
+                "sub": str(user.id),
+            }
+        )
+        
+        return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
