@@ -107,6 +107,7 @@ def change_password(
 
     # Update password
     current_user.hashed_password = hash_password(password_data.new_password)
+    db.add(current_user)
     db.commit()
 
     return {"message": "Password changed successfully"}
@@ -142,17 +143,16 @@ def upload_avatar(
 
 
 @router.delete("/me", status_code=status.HTTP_200_OK)
-def deactivate_my_account(
+def delete_my_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Deactivate the current user's account (soft delete).
-    The account can be reactivated by an admin.
+    Delete the current user's account permanently from the database.
     """
-    current_user.is_active = False
+    db.delete(current_user)
     db.commit()
-    return {"message": "Account deactivated successfully"}
+    return {"message": "Account deleted successfully"}
 
 
 # ─── Admin Endpoints ────────────────────────────────────────

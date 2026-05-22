@@ -3,7 +3,8 @@ KaPak - Authentication Router
 Endpoints: register, login, refresh token, me.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,11 @@ from app.schemas.user import (
     RefreshTokenRequest,
 )
 from app.core.email import send_reset_password_email, create_super_simple_token
+import pyotp
+import qrcode
+import io
+import base64
+import json
 
 router = APIRouter()
 
@@ -77,10 +83,11 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
+    trusted_device_token: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     """
@@ -138,6 +145,25 @@ def login(
             detail="Account is deactivated",
         )
 
+    # Check 2FA
+    if user.two_factor_enabled:
+        # Check if trusted device
+        is_trusted = False
+        if trusted_device_token:
+            try:
+                payload = verify_token(trusted_device_token)
+                if payload.get("type") == "trusted_device" and payload.get("sub") == str(user.id):
+                    is_trusted = True
+            except Exception:
+                pass
+                
+        if not is_trusted:
+            temp_token = create_access_token(
+                data={"sub": str(user.id), "is_2fa_temp": True},
+                expires_delta=timedelta(minutes=5)
+            )
+            return {"requires_2fa": True, "temp_token": temp_token}
+
     # Create access token
     access_token = create_access_token(
         data={
@@ -171,6 +197,7 @@ FIREBASE_PROJECT_ID = "kapak-3af75"
 class GoogleAuthRequest(BaseModel):
     token: str
     tenant_id: str = "default"
+    trusted_device_token: Optional[str] = None
 
 @router.post("/google")
 def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
@@ -236,6 +263,23 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 db.commit()
         
         # 4. Krijoni JWT token
+        if user.two_factor_enabled:
+            is_trusted = False
+            if payload.trusted_device_token:
+                try:
+                    tok_payload = verify_token(payload.trusted_device_token)
+                    if tok_payload.get("type") == "trusted_device" and tok_payload.get("sub") == str(user.id):
+                        is_trusted = True
+                except Exception:
+                    pass
+                    
+            if not is_trusted:
+                temp_token = create_access_token(
+                    data={"sub": str(user.id), "is_2fa_temp": True},
+                    expires_delta=timedelta(minutes=5)
+                )
+                return {"requires_2fa": True, "temp_token": temp_token}
+
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
@@ -271,6 +315,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
 class GithubAuthRequest(BaseModel):
     token: str
     tenant_id: str = "default"
+    trusted_device_token: Optional[str] = None
 
 @router.post("/github")
 def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
@@ -337,6 +382,23 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 db.commit()
         
         # Krijoni JWT token
+        if user.two_factor_enabled:
+            is_trusted = False
+            if payload.trusted_device_token:
+                try:
+                    tok_payload = verify_token(payload.trusted_device_token)
+                    if tok_payload.get("type") == "trusted_device" and tok_payload.get("sub") == str(user.id):
+                        is_trusted = True
+                except Exception:
+                    pass
+                    
+            if not is_trusted:
+                temp_token = create_access_token(
+                    data={"sub": str(user.id), "is_2fa_temp": True},
+                    expires_delta=timedelta(minutes=5)
+                )
+                return {"requires_2fa": True, "temp_token": temp_token}
+
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
