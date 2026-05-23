@@ -30,6 +30,7 @@ from app.schemas.user import (
     ResetPasswordRequest,
     RefreshTokenRequest,
     LoginResponse,
+    TwoFactorLoginRequest,
 )
 from app.core.email import send_reset_password_email, send_verification_email, create_super_simple_token
 import pyotp
@@ -47,6 +48,28 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 RESET_TOKENS = {}
 VERIFICATION_TOKENS = {}
+TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS = 30
+
+
+def _load_backup_codes(user: User) -> list[str]:
+    if not user.backup_codes:
+        return []
+
+    try:
+        codes = json.loads(user.backup_codes)
+        if isinstance(codes, list):
+            return [str(code) for code in codes]
+    except json.JSONDecodeError:
+        pass
+
+    return [code.strip() for code in user.backup_codes.splitlines() if code.strip()]
+
+
+def _issue_trusted_device_token(user: User) -> str:
+    return create_access_token(
+        data={"sub": str(user.id), "type": "trusted_device"},
+        expires_delta=timedelta(days=TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS),
+    )
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -207,6 +230,96 @@ def login(
     )
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
+@router.post("/login/2fa", response_model=LoginResponse)
+def login_with_2fa(payload: TwoFactorLoginRequest, db: Session = Depends(get_db)):
+    """
+    Complete login after the user has entered a 2FA code.
+    """
+    try:
+        temp_payload = verify_token(payload.temp_token)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Temp token i pavlefshëm ose i skaduar.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not temp_payload.get("is_2fa_temp"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Temp token i pavlefshëm.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = temp_payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Temp token i pavlefshëm.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user or not user.two_factor_enabled or not user.two_factor_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Përdoruesi nuk është gati për 2FA.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    code = payload.code.strip().replace(" ", "")
+    is_valid_code = False
+
+    try:
+        totp = pyotp.TOTP(user.two_factor_secret)
+        is_valid_code = totp.verify(code, valid_window=1)
+    except Exception:
+        is_valid_code = False
+
+    backup_codes = _load_backup_codes(user)
+    used_backup_code = False
+    if not is_valid_code and code in backup_codes:
+        is_valid_code = True
+        used_backup_code = True
+        backup_codes.remove(code)
+
+    if not is_valid_code:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Kodi 2FA është i pavlefshëm.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if used_backup_code:
+        user.backup_codes = json.dumps(backup_codes) if backup_codes else None
+        db.commit()
+
+    access_token = create_access_token(
+        data={
+            "sub": str(user.id),
+            "username": user.username,
+            "role": user.role.value,
+            "tenant_id": user.tenant_id,
+        }
+    )
+    refresh_token = create_refresh_token(
+        data={
+            "sub": str(user.id),
+        }
+    )
+
+    response_data = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+    if payload.remember_device:
+        response_data["trusted_device_token"] = _issue_trusted_device_token(user)
+
+    return response_data
 
 
 @router.get("/me", response_model=UserResponse)
