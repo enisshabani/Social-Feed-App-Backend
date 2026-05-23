@@ -50,7 +50,7 @@ async def tenant_middleware(request: Request, call_next):
     # Example: tenant1.app.com -> parts = ['tenant1', 'app', 'com'] -> tenant1
     # Example: tenant1.localhost:8000 -> parts = ['tenant1', 'localhost:8000'] -> tenant1
     parts = host.split('.')
-    tenant_id = "public" # Default tenant
+    tenant_id = "default" # Default tenant
     
     if len(parts) > 1 and parts[0] != "www" and parts[0] != "localhost":
         tenant_id = parts[0]

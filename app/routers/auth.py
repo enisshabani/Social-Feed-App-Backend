@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks
 
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
@@ -51,6 +52,10 @@ VERIFICATION_TOKENS = {}
 TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS = 30
 
 
+def _user_query(db: Session):
+    return db.query(User).execution_options(skip_tenant_filter=True)
+
+
 def _load_backup_codes(user: User) -> list[str]:
     if not user.backup_codes:
         return []
@@ -81,7 +86,7 @@ def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Sessi
     - **password**: minimum 6 characters
     """
     # Check if username already exists
-    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    existing_user = _user_query(db).filter(User.username == user_data.username).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -89,7 +94,7 @@ def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Sessi
         )
 
     # Check if email already exists
-    existing_email = db.query(User).filter(User.email == user_data.email).first()
+    existing_email = _user_query(db).filter(User.email == user_data.email).first()
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -105,7 +110,14 @@ def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Sessi
         is_verified=False,
     )
     db.add(new_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email already registered",
+        )
     db.refresh(new_user)
 
     # Dërgojmë email-in e verifikimit në background
@@ -121,7 +133,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     if not email:
         raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
         
-    user = db.query(User).filter(User.email == email).first()
+    user = _user_query(db).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=400, detail="Përdoruesi nuk u gjet.")
         
@@ -159,7 +171,7 @@ def login(
             )
 
     # Find user by username or email
-    user = db.query(User).filter(
+    user = _user_query(db).filter(
         (User.username == form_data.username) | (User.email == form_data.username)
     ).first()
     
@@ -261,7 +273,7 @@ def login_with_2fa(payload: TwoFactorLoginRequest, db: Session = Depends(get_db)
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = _user_query(db).filter(User.id == int(user_id)).first()
     if not user or not user.two_factor_enabled or not user.two_factor_secret:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -366,7 +378,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             raise ValueError("Google token nuk përmban email")
         
         # 2. Kontrollojmë nëse e kemi këtë email në db tonë
-        user = db.query(User).filter(User.email == google_email).first()
+        user = _user_query(db).filter(User.email == google_email).first()
         
         if not user:
             print(f"[GOOGLE AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
@@ -376,7 +388,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             base_username = base_username[:40]
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
 
-            existing_user = db.query(User).filter(User.username == base_username).first()
+            existing_user = _user_query(db).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
             
@@ -392,7 +404,13 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 tenant_id=payload.tenant_id
             )
             db.add(user)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                user = _user_query(db).filter(User.email == google_email).first()
+                if not user:
+                    raise
             db.refresh(user)
             
             print(f"[GOOGLE AUTH] Përdoruesi u krijua me ID: {user.id}")
@@ -492,7 +510,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
         if not github_email:
             raise ValueError("GitHub token nuk përmban email ose UID")
         
-        user = db.query(User).filter(User.email == github_email).first()
+        user = _user_query(db).filter(User.email == github_email).first()
         
         if not user:
             print(f"[GITHUB AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
@@ -501,7 +519,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             base_username = base_username[:40]
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
             
-            existing_user = db.query(User).filter(User.username == base_username).first()
+            existing_user = _user_query(db).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
             
@@ -517,7 +535,13 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 tenant_id=payload.tenant_id
             )
             db.add(user)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                user = _user_query(db).filter(User.email == github_email).first()
+                if not user:
+                    raise
             db.refresh(user)
             
             print(f"[GITHUB AUTH] Përdoruesi u krijua me ID: {user.id}")
@@ -589,7 +613,7 @@ async def forgot_password(
     Kërkesë për rishkrim të fjalëkalimit.
     Dërgon një email me linkun.
     """
-    user = db.query(User).filter(User.email == request.email).first()
+    user = _user_query(db).filter(User.email == request.email).first()
 
     if not user:
         return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}
@@ -610,7 +634,7 @@ async def reset_password(
     if not email:
         raise HTTPException(status_code=400, detail="Kodi është i pasaktë ose ka skaduar.")
         
-    user = db.query(User).filter(User.email == email).first()
+    user = _user_query(db).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=400, detail="Përdoruesi nuk u gjet.")
         
@@ -640,7 +664,7 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
                 detail="Invalid token payload",
             )
             
-        user = db.query(User).filter(User.id == int(user_id)).first()
+        user = _user_query(db).filter(User.id == int(user_id)).first()
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

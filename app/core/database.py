@@ -1,6 +1,7 @@
 """
 KaPak - Database Configuration
 SQLAlchemy engine, session, and base model setup.
+"""
 from sqlalchemy import create_engine, Column, String, event
 from sqlalchemy.orm import with_loader_criteria
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
@@ -42,13 +43,19 @@ def _add_tenant_filter(execute_state):
     Automatically injects a tenant filter into all queries 
     for models that inherit from TenantMixin or have a tenant_id column.
     """
-    if execute_state.is_select and not execute_state.is_column_load and not execute_state.is_relationship_load:
+    if (
+        execute_state.is_select
+        and not execute_state.is_column_load
+        and not execute_state.is_relationship_load
+        and not execute_state.execution_options.get("skip_tenant_filter")
+    ):
+        tenant_id = get_tenant()
         # Check if the query is against models that have tenant_id
         # with_loader_criteria automatically applies the condition to the matching entities
         execute_state.statement = execute_state.statement.options(
             with_loader_criteria(
                 TenantMixin,
-                lambda cls: cls.tenant_id == get_tenant(),
+                lambda cls: cls.tenant_id == tenant_id,
                 include_aliases=True
             )
         )

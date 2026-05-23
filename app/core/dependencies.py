@@ -27,7 +27,12 @@ def get_current_user(
             detail="Could not validate credentials",
         )
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = (
+        db.query(User)
+        .execution_options(skip_tenant_filter=True)
+        .filter(User.id == int(user_id))
+        .first()
+    )
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

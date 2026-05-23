@@ -1,7 +1,7 @@
 import contextvars
 
 # Global context variable to store the tenant ID for the current request
-current_tenant_var: contextvars.ContextVar[str] = contextvars.ContextVar("tenant", default="public")
+current_tenant_var: contextvars.ContextVar[str] = contextvars.ContextVar("tenant", default="default")
 
 def set_tenant(tenant_id: str) -> contextvars.Token:
     """Set the current tenant and return the token to allow resetting later."""
