@@ -1,0 +1,56 @@
+@@ -26,8 +26,18 @@
+     ForgotPasswordRequest,
+     ResetPasswordRequest,
+     RefreshTokenRequest,
++    LoginResponse,
++    TwoFactorSetupResponse,
++    TwoFactorVerifyRequest,
++    TwoFactorLoginRequest,
++    TwoFactorEnableResponse,
+ )
+ from app.core.email import send_reset_password_email, create_super_simple_token
++import pyotp
++import qrcode
++import io
++import base64
++import json
+ 
+ router = APIRouter()
+ 
+@@ -77,7 +87,7 @@
+     return new_user
+ 
+ 
+-@router.post("/login", response_model=Token)
++@router.post("/login", response_model=LoginResponse)
+ def login(
+     request: Request,
+     form_data: OAuth2PasswordRequestForm = Depends(),
+@@ -263,6 +281,13 @@
+                 db.commit()
+         
+         # 4. Krijoni JWT token
++        if user.two_factor_enabled:
++            temp_token = create_access_token(
++                data={"sub": str(user.id), "is_2fa_temp": True},
++                expires_delta=timedelta(minutes=5)
++            )
++            return {"requires_2fa": True, "temp_token": temp_token}
++
+         access_token = create_access_token(
+             data={
+                 "sub": str(user.id),
+@@ -364,6 +389,13 @@
+                 db.commit()
+         
+         # Krijoni JWT token
++        if user.two_factor_enabled:
++            temp_token = create_access_token(
++                data={"sub": str(user.id), "is_2fa_temp": True},
++                expires_delta=timedelta(minutes=5)
++            )
++            return {"requires_2fa": True, "temp_token": temp_token}
++
+         access_token = create_access_token(
+             data={
+                 "sub": str(user.id),

@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.hashtag import Hashtag, ContentHashtag
-from app.models.post import Post, Comment, Like, Repost
+from app.models.post import Post, Comment, PostLike as Like, PostRepost as Repost
 from app.schemas.hashtag import (
     HashtagResponse,
     HashtagTrendingResponse,

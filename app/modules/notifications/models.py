@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Enum, Index
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Enum, Index, Integer
 from app.core.database import Base
 
 class NotificationType(str, enum.Enum):
@@ -21,8 +21,8 @@ class Notification(Base):
     tenant_id = Column(String(36), nullable=False, index=True)
 
     # Foreign Keys referencing users table (with cascade deletes and indexes)
-    recipient_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    actor_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Notification metadata
     type = Column(Enum(NotificationType), nullable=False, index=True)

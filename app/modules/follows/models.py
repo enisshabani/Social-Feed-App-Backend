@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, ForeignKey, DateTime, UniqueConstraint, Index
+from sqlalchemy import Column, String, ForeignKey, DateTime, UniqueConstraint, Index, Integer
 from app.core.database import Base
 
 class Follow(Base):
@@ -13,8 +13,8 @@ class Follow(Base):
     tenant_id = Column(String(36), nullable=False, index=True)
 
     # Foreign Keys referencing users table (with cascade deletes and indexes)
-    follower_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    followee_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    follower_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    followee_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
