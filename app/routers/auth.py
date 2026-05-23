@@ -4,7 +4,7 @@ Endpoints: register, login, refresh token, me.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
@@ -33,7 +33,7 @@ from app.schemas.user import (
     LoginResponse,
     TwoFactorLoginRequest,
 )
-from app.core.email import send_reset_password_email, send_verification_email, create_super_simple_token
+from app.core.email import send_reset_password_email, create_super_simple_token
 import pyotp
 import qrcode
 import io
@@ -49,7 +49,6 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 RESET_TOKENS = {}
 TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS = 30
-EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS = 24
 
 
 def _user_query(db: Session):
@@ -77,7 +76,7 @@ def _issue_trusted_device_token(user: User) -> str:
     )
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user account.
     
@@ -107,7 +106,7 @@ def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Sessi
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
         tenant_id=user_data.tenant_id,
-        is_verified=False,
+        is_verified=True,
     )
     db.add(new_user)
     try:
@@ -120,41 +119,7 @@ def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Sessi
         )
     db.refresh(new_user)
 
-    # Dërgojmë email-in e verifikimit në background
-    verification_token = create_access_token(
-        data={
-            "sub": new_user.email,
-            "type": "email_verification",
-        },
-        expires_delta=timedelta(hours=EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS),
-    )
-    background_tasks.add_task(send_verification_email, new_user.email, verification_token)
-
     return new_user
-
-@router.get("/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)):
-    try:
-        payload = verify_token(token)
-    except HTTPException:
-        raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
-
-    if payload.get("type") != "email_verification":
-        raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
-
-    email = payload.get("sub")
-    if not email:
-        raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
-        
-    user = _user_query(db).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=400, detail="Përdoruesi nuk u gjet.")
-        
-    user.is_verified = True
-    db.commit()
-
-    return {"message": "Email-i juaj u verifikua me sukses!"}
-
 
 @router.post("/login", response_model=LoginResponse)
 def login(
@@ -210,12 +175,6 @@ def login(
     # 3. Nëse login është me sukses, fshi historikun e dështimeve
     if lock_key in LOGIN_ATTEMPTS:
         del LOGIN_ATTEMPTS[lock_key]
-
-    if not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ju lutem verifikoni email-in para se të hyni.",
-        )
 
     # Check if account is active
     if not user.is_active:
