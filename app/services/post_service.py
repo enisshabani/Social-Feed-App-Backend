@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.repositories.post_repo import PostRepository
 from app.models.post import Post, Comment, PostLike, PostRepost, Draft, SavedPost
 from app.schemas.post import PostCreate, PostUpdate, CommentCreate, DraftCreate, DraftUpdate, MediaCreate
+from app.core.hashtag_utils import link_hashtags_to_post
 
 
 class PostService:
@@ -41,6 +42,9 @@ class PostService:
         for tag_name in hashtags:
             tag = self.repo.get_or_create_tag(tag_name, tenant_id)
             self.repo.link_tag_to_post(post.id, tag.id)
+
+        # 3b. Also write to the new Hashtag/ContentHashtag system (for trending)
+        link_hashtags_to_post(post.id, hashtags, self.repo.db, tenant_id)
 
         # 4. Attach media if provided
         if media_in:
@@ -77,6 +81,9 @@ class PostService:
             for tag_name in hashtags:
                 tag = self.repo.get_or_create_tag(tag_name, tenant_id)
                 self.repo.link_tag_to_post(post.id, tag.id)
+
+            # Also write to the new Hashtag/ContentHashtag system (for trending)
+            link_hashtags_to_post(post.id, hashtags, self.repo.db, tenant_id)
 
         return self.repo.update_post(post, post_in)
 

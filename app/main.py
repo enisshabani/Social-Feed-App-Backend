@@ -90,6 +90,7 @@ app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
 app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
 app.include_router(feeds.router,         prefix="/api/v1/feeds",         tags=["Feeds"])
+app.include_router(hashtags.router,      prefix="/api/v1/hashtags",      tags=["Hashtags"])
 
 @app.get("/", tags=["Root"])
 async def root():
