@@ -11,7 +11,6 @@ from app.modules.notifications.models import NotificationType
 from app.modules.notifications.service import NotificationService
 
 router = APIRouter(
-    prefix="/notifications",
     tags=["Notifications"],
 )
 

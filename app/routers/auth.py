@@ -29,6 +29,7 @@ from app.schemas.user import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     RefreshTokenRequest,
+    LoginResponse,
 )
 from app.core.email import send_reset_password_email, send_verification_email, create_super_simple_token
 import pyotp
