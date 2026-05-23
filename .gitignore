@@ -23,6 +23,11 @@ dist/
 build/
 *.egg-info/
 
+# Runtime logs
+*.log
+server_out.log
+server_err.log
+
 # Testing
 .pytest_cache/
 htmlcov/

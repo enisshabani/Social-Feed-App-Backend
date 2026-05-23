@@ -1,12 +1,17 @@
 import logging
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
 from app.core.middleware import logging_middleware
+
+# Krijohet direktoria përpara se FastAPI të bëjë mount StaticFiles
+os.makedirs("uploads/avatars", exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +43,11 @@ app = FastAPI(
         "Built as a university project for Distributed Systems 2025/26."
     ),
     version=settings.APP_VERSION,
+    contact={
+        "name": "KaPak Team",
+        "url": "https://github.com/kapak",
+        "email": "contact@kapak.local",
+    },
     docs_url="/docs",           
     redoc_url="/redoc",         
     openapi_url="/openapi.json",
@@ -47,9 +57,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",    
-        "http://localhost:5173",
-        "http://localhost:5174",    
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",  # Vite default
+        "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -59,17 +70,30 @@ app.add_middleware(
 
 app.middleware("http")(logging_middleware)
 
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ─── Routers ────────────────────────────────────────────────
 # Personi 1 - Auth & Users
 from app.routers import auth, users
 
 # Personi 2 - Posts & Feed
-from app.routers import posts
+from app.routers import posts, feeds
+
+# Personi 4 - Search & Hashtags
+from app.routers import hashtags, search
+
+# Personi 3 - Follows & Notifications
+from app.modules.follows.router import router as follows_router
+from app.modules.notifications.router import router as notifications_router
 
 app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])
 app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
+app.include_router(feeds.router,         prefix="/api/v1/feeds",         tags=["Feeds"])
+app.include_router(follows_router,       prefix="/api/v1/follows",       tags=["Follows"])
+app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(hashtags.router,      prefix="/api/v1/hashtags",      tags=["Hashtags"])
+app.include_router(search.router,        prefix="/api/v1/search",        tags=["Search"])
 
 @app.get("/", tags=["Root"])
 async def root():
