@@ -80,7 +80,7 @@ from app.routers import auth, users
 from app.routers import posts, feeds
 
 # Personi 4 - Search & Hashtags
-from app.routers import hashtags
+from app.routers import hashtags, search
 
 # Personi 3 - Follows & Notifications
 from app.modules.follows.router import router as follows_router
@@ -91,6 +91,7 @@ app.include_router(users.router,         prefix="/api/v1/users",         tags=["
 app.include_router(posts.router,         prefix="/api/v1/posts",         tags=["Posts & Feed"])
 app.include_router(feeds.router,         prefix="/api/v1/feeds",         tags=["Feeds"])
 app.include_router(hashtags.router,      prefix="/api/v1/hashtags",      tags=["Hashtags"])
+app.include_router(search.router,        prefix="/api/v1/search",        tags=["Search"])
 
 @app.get("/", tags=["Root"])
 async def root():
