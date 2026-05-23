@@ -6,6 +6,7 @@ Logging middleware and other request/response processing.
 import time
 import logging
 from fastapi import Request
+from app.core.tenant import set_tenant, reset_tenant
 
 logger = logging.getLogger("kapak")
 
@@ -38,3 +39,28 @@ async def logging_middleware(request: Request, call_next):
     response.headers["X-App-Name"] = "KaPak"
 
     return response
+
+async def tenant_middleware(request: Request, call_next):
+    """
+    Middleware that parses the tenant_id from the subdomain and injects it into ContextVar.
+    """
+    host = request.headers.get("host", "")
+    
+    # Simple subdomain parsing logic:
+    # Example: tenant1.app.com -> parts = ['tenant1', 'app', 'com'] -> tenant1
+    # Example: tenant1.localhost:8000 -> parts = ['tenant1', 'localhost:8000'] -> tenant1
+    parts = host.split('.')
+    tenant_id = "public" # Default tenant
+    
+    if len(parts) > 1 and parts[0] != "www" and parts[0] != "localhost":
+        tenant_id = parts[0]
+        
+    token = set_tenant(tenant_id)
+    
+    try:
+        response = await call_next(request)
+        # Optional: Add tenant to headers for debugging
+        response.headers["X-Tenant-ID"] = tenant_id
+        return response
+    finally:
+        reset_tenant(token)

@@ -1,12 +1,12 @@
 """
 KaPak - Database Configuration
 SQLAlchemy engine, session, and base model setup.
-"""
-
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Column, String, event
+from sqlalchemy.orm import with_loader_criteria
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
 from sqlalchemy.pool import NullPool
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import get_settings
+from app.core.tenant import get_tenant
 
 settings = get_settings()
 
@@ -30,6 +30,28 @@ class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
     pass
 
+
+class TenantMixin:
+    """Mixin to easily add tenant_id to models."""
+    tenant_id = Column(String, index=True, nullable=False, default=get_tenant)
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _add_tenant_filter(execute_state):
+    """
+    Automatically injects a tenant filter into all queries 
+    for models that inherit from TenantMixin or have a tenant_id column.
+    """
+    if execute_state.is_select and not execute_state.is_column_load and not execute_state.is_relationship_load:
+        # Check if the query is against models that have tenant_id
+        # with_loader_criteria automatically applies the condition to the matching entities
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(
+                TenantMixin,
+                lambda cls: cls.tenant_id == get_tenant(),
+                include_aliases=True
+            )
+        )
 
 def get_db():
     """

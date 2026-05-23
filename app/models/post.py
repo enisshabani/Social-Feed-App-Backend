@@ -7,7 +7,7 @@ Media, Tags, Drafts, Saved Posts, Edit History, and Timeline.
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.core.database import Base, TenantMixin
 import enum
 
 
@@ -33,7 +33,7 @@ class MediaType(str, enum.Enum):
 # CORE POST MODEL
 # ==========================================
 
-class Post(Base):
+class Post(TenantMixin, Base):
     __tablename__ = "posts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -53,9 +53,6 @@ class Post(Base):
     like_count = Column(Integer, default=0)
     reply_count = Column(Integer, default=0)
     repost_count = Column(Integer, default=0)
-
-    # Multi-tenancy
-    tenant_id = Column(String(50), default="default", index=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

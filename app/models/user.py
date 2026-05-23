@@ -8,7 +8,7 @@ from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text, Enum as SQLEnum
 )
 import enum
-from app.core.database import Base
+from app.core.database import Base, TenantMixin
 
 
 class UserRole(str, enum.Enum):
@@ -18,7 +18,7 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
 
 
-class User(Base):
+class User(TenantMixin, Base):
     """User model - core entity for authentication and profiles."""
 
     __tablename__ = "users"
@@ -46,9 +46,6 @@ class User(Base):
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
     two_factor_secret = Column(String(255), nullable=True)
     backup_codes = Column(Text, nullable=True)
-
-    # Multi-tenancy support
-    tenant_id = Column(String(50), default="default", nullable=False, index=True)
 
     # Timestamps
     created_at = Column(
