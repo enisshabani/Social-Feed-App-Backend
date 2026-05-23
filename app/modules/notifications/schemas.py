@@ -3,6 +3,13 @@ from datetime import datetime
 from typing import Optional, List
 from app.modules.notifications.models import NotificationType
 
+class UserBriefSchema(BaseModel):
+    id: int
+    username: str
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class NotificationResponse(BaseModel):
     id: str = Field(..., examples=["123e4567-e89b-12d3-a456-426614174000"])
     recipient_id: int = Field(..., examples=[1])
@@ -11,6 +18,8 @@ class NotificationResponse(BaseModel):
     entity_id: Optional[int] = Field(default=None, examples=[42])
     is_read: bool = Field(..., examples=[False])
     created_at: datetime = Field(..., examples=["2026-05-22T12:00:00Z"])
+    
+    actor: Optional[UserBriefSchema] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -11,7 +11,6 @@ from app.modules.follows.service import FollowService
 from app.workers.notification_worker import process_follow_notification
 
 router = APIRouter(
-    prefix="/follows",
     tags=["Follows"],
 )
 
