@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.hashtag import Hashtag, ContentHashtag
-from app.models.post import Post, Comment, Like, Repost
+from app.models.post import Post, Comment, PostLike, PostRepost
 from app.schemas.hashtag import (
     HashtagResponse,
     HashtagTrendingResponse,
@@ -112,8 +112,8 @@ def get_trending_statuses(
     tenant = current_user.tenant_id
 
     like_subq = (
-        db.query(func.count(Like.id))
-        .filter(Like.post_id == Post.id, Like.created_at >= cutoff)
+        db.query(func.count(PostLike.id))
+        .filter(PostLike.post_id == Post.id, PostLike.created_at >= cutoff)
         .correlate(Post)
         .scalar_subquery()
     )
@@ -124,8 +124,8 @@ def get_trending_statuses(
         .scalar_subquery()
     )
     repost_subq = (
-        db.query(func.count(Repost.id))
-        .filter(Repost.original_post_id == Post.id, Repost.created_at >= cutoff)
+        db.query(func.count(PostRepost.id))
+        .filter(PostRepost.original_post_id == Post.id, PostRepost.created_at >= cutoff)
         .correlate(Post)
         .scalar_subquery()
     )
