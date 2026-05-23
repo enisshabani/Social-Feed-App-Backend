@@ -48,8 +48,8 @@ LOGIN_ATTEMPTS = {}
 MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 RESET_TOKENS = {}
-VERIFICATION_TOKENS = {}
 TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS = 30
+EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS = 24
 
 
 def _user_query(db: Session):
@@ -121,15 +121,28 @@ def register(user_data: UserCreate, background_tasks: BackgroundTasks, db: Sessi
     db.refresh(new_user)
 
     # Dërgojmë email-in e verifikimit në background
-    verification_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-    VERIFICATION_TOKENS[verification_token] = new_user.email
+    verification_token = create_access_token(
+        data={
+            "sub": new_user.email,
+            "type": "email_verification",
+        },
+        expires_delta=timedelta(hours=EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS),
+    )
     background_tasks.add_task(send_verification_email, new_user.email, verification_token)
 
     return new_user
 
 @router.get("/verify-email")
 def verify_email(token: str, db: Session = Depends(get_db)):
-    email = VERIFICATION_TOKENS.get(token)
+    try:
+        payload = verify_token(token)
+    except HTTPException:
+        raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
+
+    if payload.get("type") != "email_verification":
+        raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
+
+    email = payload.get("sub")
     if not email:
         raise HTTPException(status_code=400, detail="Token i pavlefshëm ose i skaduar.")
         
@@ -139,9 +152,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
         
     user.is_verified = True
     db.commit()
-    
-    del VERIFICATION_TOKENS[token]
-    
+
     return {"message": "Email-i juaj u verifikua me sukses!"}
 
 
@@ -199,6 +210,12 @@ def login(
     # 3. Nëse login është me sukses, fshi historikun e dështimeve
     if lock_key in LOGIN_ATTEMPTS:
         del LOGIN_ATTEMPTS[lock_key]
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ju lutem verifikoni email-in para se të hyni.",
+        )
 
     # Check if account is active
     if not user.is_active:

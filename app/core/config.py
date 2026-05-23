@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # Email
+    FRONTEND_URL: str = "http://localhost:5173"
+    MAILTRAP_TOKEN: str = ""
+    MAILTRAP_SENDER_EMAIL: str = "hello@demomailtrap.co"
     MAIL_USERNAME: str = ""
     MAIL_PASSWORD: str = ""
     MAIL_FROM: str = ""

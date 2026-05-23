@@ -2,27 +2,28 @@ import logging
 import uuid
 import mailtrap as mt
 
-logger = logging.getLogger(__name__)
+from app.core.config import get_settings
 
-# MAILTRAP CONFIG
-# Këshillë: Në produksion mbaje këtë token në .env dhe importoje përmes settings!
-MAILTRAP_TOKEN = "97a4ccc34a82bb6d787d89eb6c41a306"
-SENDER_EMAIL = "hello@demomailtrap.co"
-SENDER_NAME = "KaPak App"
+logger = logging.getLogger(__name__)
+settings = get_settings()
 
 def _send_email(to_email: str, subject: str, html_content: str, category: str):
     """
     Funksioni ndihmës bazë për të komunikuar me Mailtrap SDK.
     """
     try:
+        if not settings.MAILTRAP_TOKEN:
+            logger.warning("MAILTRAP_TOKEN is not configured; email was not sent.")
+            return
+
         mail = mt.Mail(
-            sender=mt.Address(email=SENDER_EMAIL, name=SENDER_NAME),
+            sender=mt.Address(email=settings.MAILTRAP_SENDER_EMAIL, name=settings.MAIL_FROM_NAME),
             to=[mt.Address(email=to_email)],
             subject=subject,
             html=html_content,
             category=category,
         )
-        client = mt.MailtrapClient(token=MAILTRAP_TOKEN)
+        client = mt.MailtrapClient(token=settings.MAILTRAP_TOKEN)
         client.send(mail)
         logger.info(f"Email sent successfully to {to_email} (Category: {category})")
     except Exception as e:
@@ -32,7 +33,7 @@ async def send_reset_password_email(email_to: str, reset_token: str):
     """
     Dërgon emailin reale me token-in për reset fjalëkalimi duke përdorur Mailtrap.
     """
-    reset_url = f"http://localhost:5173/reset-password?token={reset_token}"
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
     html_content = f"""
     <h2>Përshëndetje!</h2>
@@ -49,7 +50,7 @@ async def send_verification_email(email_to: str, verification_token: str):
     """
     Dërgon emailin e verifikimit të llogarisë.
     """
-    verify_url = f"http://localhost:5173/verify-email?token={verification_token}"
+    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
 
     html_content = f"""
     <h2>Mirësevini!</h2>
