@@ -4,7 +4,7 @@ Endpoints: register, login, refresh token, me.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks
 
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
@@ -30,10 +30,12 @@ from app.schemas.user import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     RefreshTokenRequest,
-    LoginResponse,
+    TwoFactorEnableResponse,
     TwoFactorLoginRequest,
+    TwoFactorSetupResponse,
+    TwoFactorVerifyRequest,
 )
-from app.core.email import send_reset_password_email, create_super_simple_token
+from app.core.email import send_reset_password_email
 import pyotp
 import qrcode
 import io
@@ -49,6 +51,7 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 RESET_TOKENS = {}
 TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS = 30
+TWO_FACTOR_ISSUER = "KaPak"
 
 
 def _user_query(db: Session):
@@ -67,6 +70,46 @@ def _load_backup_codes(user: User) -> list[str]:
         pass
 
     return [code.strip() for code in user.backup_codes.splitlines() if code.strip()]
+
+
+def _normalize_2fa_code(code: str) -> str:
+    return code.strip().replace(" ", "").replace("-", "")
+
+
+def _generate_backup_codes(count: int = 8) -> list[str]:
+    alphabet = string.ascii_uppercase + string.digits
+    return [
+        "".join(random.choices(alphabet, k=10))
+        for _ in range(count)
+    ]
+
+
+def _verify_totp_code(user: User, code: str) -> bool:
+    if not user.two_factor_secret:
+        return False
+
+    try:
+        totp = pyotp.TOTP(user.two_factor_secret)
+        return bool(totp.verify(_normalize_2fa_code(code), valid_window=1))
+    except Exception:
+        return False
+
+
+def _verify_two_factor_code(user: User, code: str, *, consume_backup_code: bool, db: Session) -> bool:
+    normalized_code = _normalize_2fa_code(code)
+    if _verify_totp_code(user, normalized_code):
+        return True
+
+    backup_codes = _load_backup_codes(user)
+    if normalized_code not in backup_codes:
+        return False
+
+    if consume_backup_code:
+        backup_codes.remove(normalized_code)
+        user.backup_codes = json.dumps(backup_codes) if backup_codes else None
+        db.commit()
+
+    return True
 
 
 def _issue_trusted_device_token(user: User) -> str:
@@ -257,32 +300,12 @@ def login_with_2fa(payload: TwoFactorLoginRequest, db: Session = Depends(get_db)
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    code = payload.code.strip().replace(" ", "")
-    is_valid_code = False
-
-    try:
-        totp = pyotp.TOTP(user.two_factor_secret)
-        is_valid_code = totp.verify(code, valid_window=1)
-    except Exception:
-        is_valid_code = False
-
-    backup_codes = _load_backup_codes(user)
-    used_backup_code = False
-    if not is_valid_code and code in backup_codes:
-        is_valid_code = True
-        used_backup_code = True
-        backup_codes.remove(code)
-
-    if not is_valid_code:
+    if not _verify_two_factor_code(user, payload.code, consume_backup_code=True, db=db):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Kodi 2FA është i pavlefshëm.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    if used_backup_code:
-        user.backup_codes = json.dumps(backup_codes) if backup_codes else None
-        db.commit()
 
     access_token = create_access_token(
         data={
@@ -317,6 +340,137 @@ def get_me(current_user: User = Depends(get_current_user)):
     Requires a valid JWT token.
     """
     return current_user
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
+def setup_2fa(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Start 2FA setup by generating a TOTP secret and QR code.
+    The secret is only active for login after /2fa/enable succeeds.
+    """
+    if current_user.two_factor_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="2FA është tashmë i aktivizuar.",
+        )
+
+    secret = pyotp.random_base32()
+    current_user.two_factor_secret = secret
+    db.commit()
+
+    totp = pyotp.TOTP(secret)
+    provisioning_uri = totp.provisioning_uri(
+        name=current_user.email,
+        issuer_name=TWO_FACTOR_ISSUER,
+    )
+
+    qr_image = qrcode.make(provisioning_uri)
+    buffer = io.BytesIO()
+    qr_image.save(buffer, format="PNG")
+    qr_code_url = f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode('ascii')}"
+
+    return {"secret": secret, "qr_code_url": qr_code_url}
+
+
+@router.post("/2fa/enable", response_model=TwoFactorEnableResponse)
+def enable_2fa(
+    payload: TwoFactorVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Enable 2FA after confirming the current TOTP code from the setup secret.
+    """
+    if current_user.two_factor_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="2FA është tashmë i aktivizuar.",
+        )
+
+    if not current_user.two_factor_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filloni konfigurimin e 2FA para aktivizimit.",
+        )
+
+    if not _verify_totp_code(current_user, payload.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kodi 2FA është i pavlefshëm.",
+        )
+
+    backup_codes = _generate_backup_codes()
+    current_user.two_factor_enabled = True
+    current_user.backup_codes = json.dumps(backup_codes)
+    db.commit()
+
+    return {
+        "message": "2FA u aktivizua me sukses.",
+        "backup_codes": backup_codes,
+    }
+
+
+@router.post("/2fa/disable")
+def disable_2fa(
+    payload: TwoFactorVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Disable 2FA after verifying an authenticator or recovery code.
+    """
+    if not current_user.two_factor_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="2FA nuk është i aktivizuar.",
+        )
+
+    if not _verify_two_factor_code(current_user, payload.code, consume_backup_code=False, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kodi 2FA është i pavlefshëm.",
+        )
+
+    current_user.two_factor_enabled = False
+    current_user.two_factor_secret = None
+    current_user.backup_codes = None
+    db.commit()
+
+    return {"message": "2FA u çaktivizua me sukses."}
+
+
+@router.post("/2fa/recovery-codes", response_model=TwoFactorEnableResponse)
+def regenerate_recovery_codes(
+    payload: TwoFactorVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Regenerate recovery codes after verifying the current authenticator code.
+    """
+    if not current_user.two_factor_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="2FA nuk është i aktivizuar.",
+        )
+
+    if not _verify_totp_code(current_user, payload.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kodi 2FA është i pavlefshëm.",
+        )
+
+    backup_codes = _generate_backup_codes()
+    current_user.backup_codes = json.dumps(backup_codes)
+    db.commit()
+
+    return {
+        "message": "Kodet e rikuperimit u gjeneruan me sukses.",
+        "backup_codes": backup_codes,
+    }
 
 
 # Projekti ynë në Firebase
