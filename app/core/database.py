@@ -4,6 +4,7 @@ SQLAlchemy engine, session, and base model setup.
 """
 
 from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import get_settings
 
@@ -13,7 +14,7 @@ settings = get_settings()
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args={"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {},
-    pool_pre_ping=True,       # Verify connections before using them
+    poolclass=NullPool,
     echo=settings.DEBUG,      # Log SQL queries in debug mode
 )
 
