@@ -65,6 +65,15 @@ class NotificationService:
         self.db.commit()
         invalidate_cache(f"unread_count:{self.tenant_id}:{recipient_id}")
 
+    def clear_notifications(self, recipient_id: int) -> int:
+        deleted = self.db.query(Notification).filter(
+            Notification.recipient_id == recipient_id,
+            Notification.tenant_id == self.tenant_id
+        ).delete(synchronize_session=False)
+        self.db.commit()
+        invalidate_cache(f"unread_count:{self.tenant_id}:{recipient_id}")
+        return deleted
+
     def get_unread_count(self, recipient_id: int) -> int:
         def fetch():
             return self.db.query(func.count(Notification.id)).filter(

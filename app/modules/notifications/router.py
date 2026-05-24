@@ -82,6 +82,23 @@ def mark_all_as_read(
     return MarkReadResponse(success=True, message="All notifications marked as read")
 
 @router.delete(
+    "/clear-all",
+    response_model=MarkReadResponse,
+    summary="Clear all notifications",
+    description="Delete all notifications for the current user.",
+    responses={
+        200: {"description": "Successfully cleared notifications"},
+        401: {"description": "Unauthorized"}
+    }
+)
+def clear_notifications(
+    service: NotificationService = Depends(get_notification_service),
+    current_user: User = Depends(get_current_user)
+):
+    deleted = service.clear_notifications(recipient_id=current_user.id)
+    return MarkReadResponse(success=True, message=f"Cleared {deleted} notifications")
+
+@router.delete(
     "/{notification_id}", 
     status_code=status.HTTP_204_NO_CONTENT, 
     summary="Delete a notification",

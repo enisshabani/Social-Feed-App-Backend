@@ -57,6 +57,16 @@ def test_delete_notification_returns_204(test_client, populated_db):
     get_response = test_client.get("/api/v1/notifications")
     assert get_response.json()["total"] == 1
 
+def test_clear_notifications_returns_200(test_client, populated_db):
+    response = test_client.delete("/api/v1/notifications/clear-all")
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+
+    get_response = test_client.get("/api/v1/notifications")
+    data = get_response.json()
+    assert data["total"] == 0
+    assert data["unread_count"] == 0
+
 def test_get_unread_count_returns_200(test_client, populated_db):
     response = test_client.get("/api/v1/notifications/unread-count")
     assert response.status_code == 200
