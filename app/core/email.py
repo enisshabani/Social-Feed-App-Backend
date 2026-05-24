@@ -46,23 +46,6 @@ async def send_reset_password_email(email_to: str, reset_token: str):
     
     _send_email(email_to, "Rikthe Fjalëkalimin - KaPak", html_content, "Password Reset")
 
-async def send_verification_email(email_to: str, verification_token: str):
-    """
-    Dërgon emailin e verifikimit të llogarisë.
-    """
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
-
-    html_content = f"""
-    <h2>Mirësevini!</h2>
-    <p>Faleminderit që u regjistruat në <b>KaPak</b>.</p>
-    <p>Të lutem kliko butonin e mëposhtëm për të verifikuar adresën tënde të emailit:</p>
-    <a href="{verify_url}" style="padding: 10px 15px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Verifiko Llogarinë</a>
-    <br><br>
-    <p>Nëse nuk jeni regjistruar ju, thjesht injoroni këtë mesazh.</p>
-    """
-    
-    _send_email(email_to, "Verifiko Llogarinë Tënde - KaPak", html_content, "Email Verification")
-
 def create_super_simple_token() -> str:
     # Gjeneron një token të thjeshtë unik si zëvendësues
     return str(uuid.uuid4())
