@@ -1,4 +1,5 @@
 import enum
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String
@@ -18,7 +19,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     # Primary Key
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Multi-tenancy
     tenant_id = Column(String, nullable=False, index=True)

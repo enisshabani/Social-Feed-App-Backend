@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
@@ -10,7 +11,7 @@ class Follow(Base):
     __tablename__ = "follows"
 
     # Primary Key
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Multi-tenancy
     tenant_id = Column(String, nullable=False, index=True)
