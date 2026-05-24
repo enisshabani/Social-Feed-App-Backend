@@ -56,7 +56,7 @@ class NotificationService:
         self.db.query(Notification).filter(
             Notification.recipient_id == recipient_id,
             Notification.tenant_id == self.tenant_id,
-            not Notification.is_read
+            Notification.is_read == False
         ).update({"is_read": True})
         self.db.commit()
         invalidate_cache(f"unread_count:{self.tenant_id}:{recipient_id}")
@@ -81,7 +81,7 @@ class NotificationService:
             return self.db.query(func.count(Notification.id)).filter(
                 Notification.recipient_id == recipient_id,
                 Notification.tenant_id == self.tenant_id,
-                not Notification.is_read
+                Notification.is_read == False
             ).scalar() or 0
 
         key = f"unread_count:{self.tenant_id}:{recipient_id}"
@@ -109,7 +109,6 @@ class NotificationService:
         pref.filter_new_accounts = preferences.filter_new_accounts
         pref.highlight_unread = preferences.highlight_unread
         pref.display_all_categories = preferences.display_all_categories
-
         self.db.commit()
         self.db.refresh(pref)
         return pref

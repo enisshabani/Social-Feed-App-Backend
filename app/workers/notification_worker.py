@@ -27,6 +27,11 @@ class NotificationWorker:
                 NotificationPreference.tenant_id == tenant_id
             ).first()
 
+            if not pref:
+                pref = NotificationPreference(user_id=recipient_id, tenant_id=tenant_id)
+                self.db.add(pref)
+                self.db.flush()
+
             if pref:
                 if pref.filter_not_following:
                     # Does recipient follow actor?
