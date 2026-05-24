@@ -12,6 +12,7 @@ from app.core.middleware import logging_middleware, tenant_middleware
 
 # Krijohet direktoria përpara se FastAPI të bëjë mount StaticFiles
 os.makedirs("uploads/avatars", exist_ok=True)
+os.makedirs("uploads/posts", exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,12 +24,29 @@ logger = logging.getLogger("kapak")
 settings = get_settings()
 
 
+def ensure_lightweight_schema_updates():
+    """Apply small SQLite-safe schema updates for local/dev databases."""
+    try:
+        with engine.begin() as conn:
+            if engine.dialect.name == "sqlite":
+                columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(post_likes)").fetchall()]
+                if columns and "reaction_type" not in columns:
+                    conn.exec_driver_sql("ALTER TABLE post_likes ADD COLUMN reaction_type VARCHAR(16) DEFAULT 'star' NOT NULL")
+                    logger.info("Added post_likes.reaction_type column")
+            else:
+                conn.exec_driver_sql("ALTER TABLE post_likes ADD COLUMN IF NOT EXISTS reaction_type VARCHAR(16) DEFAULT 'star' NOT NULL")
+                logger.info("Added post_likes.reaction_type column")
+    except Exception as exc:
+        logger.warning("Could not apply lightweight schema updates: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
     logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
 
     Base.metadata.create_all(bind=engine)
+    ensure_lightweight_schema_updates()
     logger.info("✅ Database tables created/verified")
 
     yield
@@ -66,7 +84,7 @@ app.add_middleware(
         "https://kapak-3af75.web.app",
         "https://kapak-3af75.firebaseapp.com",
     ],
-    allow_origin_regex=r"^http://([a-zA-Z0-9-]+\.)?(localhost|127\.0\.0\.1):\d+$",
+    allow_origin_regex=r"^http://([a-zA-Z0-9-]+\.)?(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+):\d+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

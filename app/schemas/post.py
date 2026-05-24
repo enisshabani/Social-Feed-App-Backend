@@ -97,9 +97,14 @@ class LikeResponse(BaseModel):
     id: int
     user_id: int
     post_id: int
+    reaction_type: str = "star"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LikeRequest(BaseModel):
+    reaction_type: str = Field("star", max_length=16)
 
 
 # ==========================================

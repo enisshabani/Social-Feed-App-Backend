@@ -108,6 +108,7 @@ class PostLike(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    reaction_type = Column(String(16), default="star", nullable=False)
 
     tenant_id = Column(String(50), default="default", index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

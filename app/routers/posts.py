@@ -22,6 +22,7 @@ from app.schemas.post import (
     CommentResponse,
     DraftCreate,
     DraftResponse,
+    LikeRequest,
     PostBriefResponse,
     PostCreate,
     PostResponse,
@@ -265,6 +266,7 @@ def vote_poll(
 @router.post("/{post_id}/like", status_code=status.HTTP_200_OK)
 def like_post(
     post_id: int,
+    reaction: LikeRequest = LikeRequest(),
     x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -273,13 +275,15 @@ def like_post(
     Toggle a like on a post. Safe, idempotent, and updates denormalized like counters.
     """
     service = PostService(db)
-    liked, message = service.toggle_like(post_id, current_user.id, x_tenant_id)
+    allowed_reactions = {"star", "laugh", "love", "wow", "sad", "angry"}
+    reaction_type = reaction.reaction_type if reaction.reaction_type in allowed_reactions else "star"
+    liked, message, selected_reaction = service.toggle_like(post_id, current_user.id, x_tenant_id, reaction_type)
 
     # Invalidate cache
     cache_service.delete(f"post:{x_tenant_id}:{post_id}")
     _invalidate_feed_cache(x_tenant_id)
 
-    return {"liked": liked, "message": message}
+    return {"liked": liked, "message": message, "reaction_type": selected_reaction}
 
 
 @router.post("/{post_id}/repost", status_code=status.HTTP_200_OK)

@@ -150,7 +150,7 @@ class PostRepository:
     # LIKES
     # ==========================================
 
-    def create_like(self, post_id: int, user_id: int, tenant_id: str = "default") -> Optional[PostLike]:
+    def create_like(self, post_id: int, user_id: int, tenant_id: str = "default", reaction_type: str = "star") -> Optional[PostLike]:
         """Like a post (idempotent)."""
         existing = self.db.query(PostLike).filter(
             PostLike.post_id == post_id,
@@ -159,9 +159,12 @@ class PostRepository:
         ).first()
 
         if existing:
+            existing.reaction_type = reaction_type
+            self.db.commit()
+            self.db.refresh(existing)
             return existing
 
-        like = PostLike(post_id=post_id, user_id=user_id, tenant_id=tenant_id)
+        like = PostLike(post_id=post_id, user_id=user_id, reaction_type=reaction_type, tenant_id=tenant_id)
         self.db.add(like)
 
         # Increment counter

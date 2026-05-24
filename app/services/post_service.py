@@ -130,11 +130,11 @@ class PostService:
     # LIKE & REPOST BUSINESS LOGIC
     # ==========================================
 
-    def toggle_like(self, post_id: int, user_id: int, tenant_id: str = "default") -> Tuple[bool, str]:
+    def toggle_like(self, post_id: int, user_id: int, tenant_id: str = "default", reaction_type: str = "star") -> Tuple[bool, str, str]:
         """Toggle post like state. Returns (is_liked, message)."""
         post = self.repo.get_post_by_id(post_id, tenant_id)
         if not post:
-            return False, "Post not found"
+            return False, "Post not found", reaction_type
 
         # Check if already liked
         liked = self.repo.db.query(PostLike).filter(
@@ -144,11 +144,15 @@ class PostService:
         ).first()
 
         if liked:
+            current_reaction = liked.reaction_type or "star"
+            if current_reaction != reaction_type:
+                self.repo.create_like(post_id, user_id, tenant_id, reaction_type)
+                return True, "Post reaction updated successfully", reaction_type
             self.repo.remove_like(post_id, user_id, tenant_id)
-            return False, "Post unliked successfully"
+            return False, "Post unliked successfully", reaction_type
         else:
-            self.repo.create_like(post_id, user_id, tenant_id)
-            return True, "Post liked successfully"
+            self.repo.create_like(post_id, user_id, tenant_id, reaction_type)
+            return True, "Post liked successfully", reaction_type
 
     def toggle_repost(self, post_id: int, user_id: int, tenant_id: str = "default") -> Tuple[bool, str]:
         """Toggle post repost state. Returns (is_reposted, message)."""
