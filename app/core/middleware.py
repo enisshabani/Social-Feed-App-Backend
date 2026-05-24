@@ -28,6 +28,9 @@ def tenant_from_host(host: str | None) -> str:
         return "default"
 
     hostname = host.split(":", 1)[0].lower()
+    if hostname in {"localhost", "127.0.0.1", "0.0.0.0"}:
+        return "default"
+
     parts = hostname.split(".")
 
     if len(parts) > 1:
@@ -69,8 +72,9 @@ async def tenant_middleware(request: Request, call_next):
     """
     Middleware that parses the tenant_id and injects it into ContextVar.
     """
-    tenant_id = normalize_tenant_id(request.headers.get("x-tenant-id"))
-    if tenant_id == "default":
+    header_tenant = request.headers.get("x-tenant-id")
+    tenant_id = normalize_tenant_id(header_tenant)
+    if not header_tenant:
         tenant_id = tenant_from_host(request.headers.get("host"))
         
     token = set_tenant(tenant_id)

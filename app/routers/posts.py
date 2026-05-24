@@ -3,7 +3,11 @@ KaPak - Posts Router
 API Endpoints for creating, editing, deleting, liking, bookmarking, and commenting on posts.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, BackgroundTasks
+import os
+import shutil
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, BackgroundTasks, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -26,6 +30,9 @@ from app.services.background_tasks import BackgroundTasksService
 
 router = APIRouter()
 
+POST_UPLOAD_DIR = os.path.join("uploads", "posts")
+os.makedirs(POST_UPLOAD_DIR, exist_ok=True)
+
 # Helper to invalidate cached timeline and explore feeds when updates happen
 def _invalidate_feed_cache(tenant_id: str, user_id: Optional[int] = None):
     cache_service.invalidate_prefix(f"feed:{tenant_id}")
@@ -36,6 +43,35 @@ def _invalidate_feed_cache(tenant_id: str, user_id: Optional[int] = None):
 # ==========================================
 # POST CRUD ENDPOINTS
 # ==========================================
+
+@router.post("/media-upload", status_code=status.HTTP_201_CREATED)
+def upload_post_media(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Upload an image or video for use in a post and return a public URL.
+    """
+    if not file.content_type or not (
+        file.content_type.startswith("image/") or file.content_type.startswith("video/")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image or video.",
+        )
+
+    media_type = "video" if file.content_type.startswith("video/") else "image"
+    extension = os.path.splitext(file.filename or "")[1] or (".mp4" if media_type == "video" else ".jpg")
+    filename = f"{current_user.id}_{uuid.uuid4().hex[:10]}{extension}"
+    file_path = os.path.join(POST_UPLOAD_DIR, filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+        "url": f"/uploads/posts/{filename}",
+        "media_type": media_type,
+    }
 
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 def create_post(
@@ -49,7 +85,7 @@ def create_post(
     Create a new post. Automatically parses hashtags and @mentions into HTML formatting.
     """
     service = PostService(db)
-    new_post = service.create_post(post, current_user.id, x_tenant_id)
+    new_post = service.create_post(post, current_user.id, x_tenant_id, post.media)
     
     # Trigger background tasks
     background_tasks.add_task(BackgroundTasksService.fanout_post_to_followers, new_post.id, current_user.id, x_tenant_id, db)
