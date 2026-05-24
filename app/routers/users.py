@@ -143,13 +143,16 @@ def upload_avatar(
     """
     Upload a profile avatar.
     """
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File provided is not an image.",
         )
     
-    file_extension = file.filename.split(".")[-1]
+    if not file.filename:
+        file_extension = "jpg"
+    else:
+        file_extension = file.filename.split(".")[-1]
     filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
     file_path = os.path.join("uploads", "avatars", filename)
     
