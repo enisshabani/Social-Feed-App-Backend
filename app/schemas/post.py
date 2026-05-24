@@ -93,6 +93,7 @@ class PostCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
     visibility: str = "public"
     reply_to_post_id: Optional[int] = None
+    media: List[MediaCreate] = []
 
 class PostUpdate(BaseModel):
     content: Optional[str] = Field(None, min_length=1, max_length=5000)
@@ -128,6 +129,7 @@ class PostBriefResponse(BaseModel):
     """Lighter version of PostResponse for feed listings."""
     id: int
     content: str
+    content_html: Optional[str] = None
     author_id: int
     author: Optional[UserPublicResponse] = None
     visibility: str
@@ -137,6 +139,10 @@ class PostBriefResponse(BaseModel):
     reply_count: int = 0
     repost_count: int = 0
     created_at: datetime
+    likes: List[LikeResponse] = []
+    reposts: List[RepostResponse] = []
+    media: List[MediaResponse] = []
+    tags: List[TagResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 
