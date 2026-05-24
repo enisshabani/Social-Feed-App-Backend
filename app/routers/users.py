@@ -148,7 +148,7 @@ def upload_avatar(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File provided is not an image.",
         )
-    
+
     if not file.filename:
         file_extension = "jpg"
     else:
@@ -181,21 +181,21 @@ def upload_cover(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File provided is not an image.",
         )
-    
+
     if not file.filename:
         file_extension = "jpg"
     else:
         file_extension = file.filename.split(".")[-1]
     filename = f"cover_{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
     file_path = os.path.join("uploads", "avatars", filename) # Using same folder for now or create 'covers'
-    
+
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
+
     current_user.cover_url = f"/uploads/avatars/{filename}"
     db.commit()
     db.refresh(current_user)
-    
+
     return current_user
 
 

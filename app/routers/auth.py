@@ -15,7 +15,7 @@ from typing import Optional
 
 import pyotp
 import qrcode
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from google.auth.transport import requests
 from google.oauth2 import id_token
@@ -25,7 +25,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.core.email import send_reset_password_email
 from app.core.middleware import normalize_tenant_id
 from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_token
 from app.models.user import User
