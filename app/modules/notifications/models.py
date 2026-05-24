@@ -1,8 +1,7 @@
 import enum
-import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -19,14 +18,14 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     # Primary Key
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
     # Multi-tenancy
-    tenant_id = Column(String(36), nullable=False, index=True)
+    tenant_id = Column(String, nullable=False, index=True)
 
     # Foreign Keys referencing users table (with cascade deletes and indexes)
-    recipient_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    actor_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     recipient = relationship("User", foreign_keys=[recipient_id])
     actor = relationship("User", foreign_keys=[actor_id])

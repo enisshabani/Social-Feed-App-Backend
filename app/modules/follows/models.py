@@ -1,7 +1,6 @@
-import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -11,14 +10,14 @@ class Follow(Base):
     __tablename__ = "follows"
 
     # Primary Key
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
     # Multi-tenancy
-    tenant_id = Column(String(36), nullable=False, index=True)
+    tenant_id = Column(String, nullable=False, index=True)
 
     # Foreign Keys referencing users table (with cascade deletes and indexes)
-    follower_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    followee_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    follower_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    followee_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     follower = relationship("User", foreign_keys=[follower_id])
     followee = relationship("User", foreign_keys=[followee_id])

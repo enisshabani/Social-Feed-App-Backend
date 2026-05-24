@@ -55,7 +55,7 @@ def test_get_pending_follow_backs_excludes_users_who_follow_back(db_session):
     pending = service.get_pending_follow_backs(user_id=1)
 
     assert len(pending) == 1
-    assert str(pending[0].followee_id) == "2"
+    assert pending[0].followee_id == 2
 
 def test_get_follow_counts_correct(db_session):
     service = FollowService(db_session, tenant_id="tenant-1")

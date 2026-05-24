@@ -17,7 +17,7 @@ class NotificationWorker:
     def _create_notification(self, type_: NotificationType, actor_id: int, recipient_id: int, tenant_id: str, entity_id: int = None):
         try:
             # Skip self-notifications
-            if str(actor_id) == str(recipient_id):
+            if actor_id == recipient_id:
                 logger.info(f"Skipping self-notification for user {actor_id}")
                 return
 
@@ -31,8 +31,8 @@ class NotificationWorker:
                 if pref.filter_not_following:
                     # Does recipient follow actor?
                     is_following = self.db.query(Follow).filter(
-                        Follow.follower_id == str(recipient_id),
-                        Follow.followee_id == str(actor_id),
+                        Follow.follower_id == recipient_id,
+                        Follow.followee_id == actor_id,
                         Follow.tenant_id == tenant_id
                     ).first()
                     if not is_following:
@@ -42,8 +42,8 @@ class NotificationWorker:
                 if pref.filter_not_followed_by:
                     # Does actor follow recipient?
                     is_followed_by = self.db.query(Follow).filter(
-                        Follow.follower_id == str(actor_id),
-                        Follow.followee_id == str(recipient_id),
+                        Follow.follower_id == actor_id,
+                        Follow.followee_id == recipient_id,
                         Follow.tenant_id == tenant_id
                     ).first()
                     if not is_followed_by:
@@ -58,9 +58,9 @@ class NotificationWorker:
 
             notification = Notification(
                 type=type_,
-                actor_id=str(actor_id),
-                recipient_id=str(recipient_id),
-                tenant_id=str(tenant_id),
+                actor_id=actor_id,
+                recipient_id=recipient_id,
+                tenant_id=tenant_id,
                 entity_id=str(entity_id) if entity_id else None
             )
             self.db.add(notification)

@@ -274,15 +274,15 @@ def delete_my_account(
         db.query(Notification).filter(
             Notification.tenant_id == tenant_id,
             (
-                (Notification.recipient_id == user_id_str)
-                | (Notification.actor_id == user_id_str)
+                (Notification.recipient_id == user_id)
+                | (Notification.actor_id == user_id)
             ),
         ).delete(synchronize_session=False)
         db.query(Follow).filter(
             Follow.tenant_id == tenant_id,
             (
-                (Follow.follower_id == user_id_str)
-                | (Follow.followee_id == user_id_str)
+                (Follow.follower_id == user_id)
+                | (Follow.followee_id == user_id)
             ),
         ).delete(synchronize_session=False)
         db.query(NotificationPreference).filter(
