@@ -3,6 +3,7 @@ from sqlalchemy import func
 from typing import Optional
 
 from app.modules.notifications.models import Notification, NotificationType
+from app.models.notification_preference import NotificationPreference
 from app.modules.notifications.exceptions import NotificationNotFoundError, NotificationForbiddenError
 from app.core.redis import get_or_set_cache, invalidate_cache
 
@@ -74,3 +75,31 @@ class NotificationService:
             
         key = f"unread_count:{self.tenant_id}:{recipient_id}"
         return get_or_set_cache(key, 120, fetch)
+
+    def get_preferences(self, user_id: int) -> NotificationPreference:
+        pref = self.db.query(NotificationPreference).filter(
+            NotificationPreference.user_id == user_id,
+            NotificationPreference.tenant_id == self.tenant_id
+        ).first()
+        
+        if not pref:
+            pref = NotificationPreference(user_id=user_id, tenant_id=self.tenant_id)
+            self.db.add(pref)
+            self.db.commit()
+            self.db.refresh(pref)
+            
+        return pref
+
+    def update_preferences(self, user_id: int, preferences) -> NotificationPreference:
+        pref = self.get_preferences(user_id)
+        
+        pref.filter_not_following = preferences.filter_not_following
+        pref.filter_not_followed_by = preferences.filter_not_followed_by
+        pref.filter_new_accounts = preferences.filter_new_accounts
+        pref.highlight_unread = preferences.highlight_unread
+        pref.display_all_categories = preferences.display_all_categories
+        
+        self.db.commit()
+        self.db.refresh(pref)
+        return pref
+

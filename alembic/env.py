@@ -11,6 +11,7 @@ from app.core.config import get_settings
 # Import YOUR models
 from app.modules.follows.models import Follow
 from app.modules.notifications.models import Notification
+from app.models.notification_preference import NotificationPreference
 
 config = context.config
 settings = get_settings()
@@ -21,8 +22,8 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 from sqlalchemy import Table, Column, String
-Table("users", target_metadata, Column("id", String(36), primary_key=True))
-Table("posts", target_metadata, Column("id", String(36), primary_key=True))
+Table("users", target_metadata, Column("id", String(36), primary_key=True), extend_existing=True)
+Table("posts", target_metadata, Column("id", String(36), primary_key=True), extend_existing=True)
 
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table":

@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 
-from app.modules.notifications.schemas import NotificationListResponse, MarkReadResponse
+from app.modules.notifications.schemas import NotificationListResponse, MarkReadResponse, NotificationPreferenceSchema
 from app.modules.notifications.models import NotificationType
 from app.modules.notifications.service import NotificationService
 
@@ -115,3 +115,27 @@ def get_unread_count(
 ):
     count = service.get_unread_count(recipient_id=current_user.id)
     return {"unread_count": count}
+
+@router.get(
+    "/preferences",
+    response_model=NotificationPreferenceSchema,
+    summary="Get user notification preferences"
+)
+def get_preferences(
+    service: NotificationService = Depends(get_notification_service),
+    current_user: User = Depends(get_current_user)
+):
+    return service.get_preferences(user_id=current_user.id)
+
+@router.put(
+    "/preferences",
+    response_model=NotificationPreferenceSchema,
+    summary="Update user notification preferences"
+)
+def update_preferences(
+    preferences: NotificationPreferenceSchema,
+    service: NotificationService = Depends(get_notification_service),
+    current_user: User = Depends(get_current_user)
+):
+    return service.update_preferences(user_id=current_user.id, preferences=preferences)
+

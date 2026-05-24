@@ -31,3 +31,13 @@ class NotificationListResponse(BaseModel):
 class MarkReadResponse(BaseModel):
     success: bool = Field(..., examples=[True])
     message: str = Field(..., examples=["Notifications marked as read"])
+
+class NotificationPreferenceSchema(BaseModel):
+    filter_not_following: bool = False
+    filter_not_followed_by: bool = False
+    filter_new_accounts: bool = False
+    highlight_unread: bool = True
+    display_all_categories: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
