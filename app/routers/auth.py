@@ -4,7 +4,7 @@ Endpoints: register, login, refresh token, me.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Header
 
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
@@ -35,7 +35,7 @@ from app.schemas.user import (
     TwoFactorSetupResponse,
     TwoFactorVerifyRequest,
 )
-from app.core.email import send_reset_password_email
+
 from app.core.middleware import normalize_tenant_id
 import pyotp
 import qrcode
@@ -774,25 +774,22 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
-    background_tasks: BackgroundTasks,
     x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
 ):
     """
     Kërkesë për rishkrim të fjalëkalimit.
-    Dërgon një email me linkun.
+    Gjeneron një kod 6-shifror dhe e tregon në alert.
     """
     user = _global_user_by_email(db, request.email)
 
     if not user:
-        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}
+        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit do të shfaqet."}
     
     reset_code = ''.join(random.choices(string.digits, k=6))
     RESET_TOKENS[reset_code] = user.email
 
-    background_tasks.add_task(send_reset_password_email, user.email, reset_code)
-
-    return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}
+    return {"message": "Kodi u gjenerua.", "code": reset_code}
 
 @router.post("/reset-password")
 async def reset_password(
