@@ -39,7 +39,6 @@ class Settings(BaseSettings):
 
     # Email
     FRONTEND_URL: str = "http://localhost:5173"
-    EMAIL_VERIFICATION_REQUIRED: bool = False
     MAILTRAP_TOKEN: str = ""
     MAILTRAP_SENDER_EMAIL: str = "hello@demomailtrap.co"
     MAIL_USERNAME: str = ""

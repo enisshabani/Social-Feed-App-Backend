@@ -45,7 +45,7 @@ class User(TenantMixin, Base):
 
     # Account status
     is_active = Column(Boolean, default=True, nullable=False)
-    is_verified = Column(Boolean, default=False, nullable=False)
+    is_verified = Column(Boolean, default=True, nullable=False)
     
     # Two-Factor Authentication
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
