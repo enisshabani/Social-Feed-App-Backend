@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # OpenAI / Google AI Studio (OpenAI-compatible endpoint)
     OPENAI_API_KEY: str = ""
-    GOOGLE_API_KEY: str = "AIzaSyBd5pT8WM6B1GzKFW2KE2rkmgq-30dCuG4"
+    GOOGLE_API_KEY: str = ""
     GOOGLE_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
     # Celery (background task queue)
