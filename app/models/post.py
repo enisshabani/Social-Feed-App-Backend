@@ -6,7 +6,7 @@ Media, Tags, Drafts, Saved Posts, Edit History, and Timeline.
 
 import enum
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -70,6 +70,7 @@ class Post(TenantMixin, Base):
     tags = relationship("Tag", secondary="post_tags", backref="posts")
     edit_history = relationship("PostEditHistory", backref="post", cascade="all, delete-orphan")
     attachments = relationship("PostAttachment", backref="post", cascade="all, delete-orphan")
+    poll = relationship("Poll", backref="post", cascade="all, delete-orphan", uselist=False)
 
     def __repr__(self):
         return f"<Post(id={self.id}, author_id={self.author_id})>"
@@ -307,3 +308,58 @@ class PostAttachment(Base):
 
     def __repr__(self):
         return f"<PostAttachment(id={self.id}, post_id={self.post_id})>"
+
+
+# ==========================================
+# POLLS
+# ==========================================
+
+class Poll(Base):
+    __tablename__ = "polls"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False, unique=True)
+    question = Column(String(280), nullable=False)
+
+    tenant_id = Column(String(50), default="default", index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    options = relationship("PollOption", backref="poll", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Poll(id={self.id}, post_id={self.post_id})>"
+
+
+class PollOption(Base):
+    __tablename__ = "poll_options"
+
+    id = Column(Integer, primary_key=True, index=True)
+    poll_id = Column(Integer, ForeignKey("polls.id", ondelete="CASCADE"), nullable=False)
+    text = Column(String(120), nullable=False)
+    vote_count = Column(Integer, default=0)
+
+    tenant_id = Column(String(50), default="default", index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    votes = relationship("PollVote", backref="option", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<PollOption(id={self.id}, poll_id={self.poll_id})>"
+
+
+class PollVote(Base):
+    __tablename__ = "poll_votes"
+    __table_args__ = (
+        UniqueConstraint("poll_id", "user_id", name="uq_poll_vote_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    poll_id = Column(Integer, ForeignKey("polls.id", ondelete="CASCADE"), nullable=False)
+    option_id = Column(Integer, ForeignKey("poll_options.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    tenant_id = Column(String(50), default="default", index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self):
+        return f"<PollVote(poll_id={self.poll_id}, user_id={self.user_id})>"

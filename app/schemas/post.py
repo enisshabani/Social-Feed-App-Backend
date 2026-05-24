@@ -31,6 +31,35 @@ class MediaResponse(BaseModel):
 
 
 # ==========================================
+# POLL SCHEMAS
+# ==========================================
+
+class PollCreate(BaseModel):
+    question: str = Field(..., min_length=1, max_length=280)
+    options: List[str] = Field(..., min_length=2, max_length=4)
+
+class PollOptionResponse(BaseModel):
+    id: int
+    poll_id: int
+    text: str
+    vote_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PollResponse(BaseModel):
+    id: int
+    post_id: int
+    question: str
+    options: List[PollOptionResponse] = []
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PollVoteRequest(BaseModel):
+    option_id: int
+
+
+# ==========================================
 # TAG SCHEMAS
 # ==========================================
 
@@ -95,6 +124,7 @@ class PostCreate(BaseModel):
     visibility: str = "public"
     reply_to_post_id: Optional[int] = None
     media: List[MediaCreate] = []
+    poll: Optional[PollCreate] = None
 
 class PostUpdate(BaseModel):
     content: Optional[str] = Field(None, min_length=1, max_length=5000)
@@ -122,6 +152,7 @@ class PostResponse(BaseModel):
     reposts: List[RepostResponse] = []
     media: List[MediaResponse] = []
     tags: List[TagResponse] = []
+    poll: Optional[PollResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -144,6 +175,7 @@ class PostBriefResponse(BaseModel):
     reposts: List[RepostResponse] = []
     media: List[MediaResponse] = []
     tags: List[TagResponse] = []
+    poll: Optional[PollResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

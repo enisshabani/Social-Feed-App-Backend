@@ -18,10 +18,13 @@ from app.models.post import (
     PostLike,
     PostRepost,
     PostTag,
+    Poll,
+    PollOption,
+    PollVote,
     SavedPost,
     Tag,
 )
-from app.schemas.post import CommentCreate, DraftCreate, DraftUpdate, PostCreate, PostUpdate
+from app.schemas.post import CommentCreate, DraftCreate, DraftUpdate, PollCreate, PostCreate, PostUpdate
 
 
 class PostRepository:
@@ -426,3 +429,73 @@ class PostRepository:
         self.db.commit()
         self.db.refresh(media)
         return media
+
+    # ==========================================
+    # POLLS
+    # ==========================================
+
+    def create_poll(self, post_id: int, poll_in: PollCreate, tenant_id: str = "default") -> Poll:
+        """Attach a poll to a post."""
+        poll = Poll(
+            post_id=post_id,
+            question=poll_in.question.strip(),
+            tenant_id=tenant_id,
+        )
+        self.db.add(poll)
+        self.db.flush()
+
+        for option_text in poll_in.options:
+            option = PollOption(
+                poll_id=poll.id,
+                text=option_text.strip(),
+                tenant_id=tenant_id,
+            )
+            self.db.add(option)
+
+        self.db.commit()
+        self.db.refresh(poll)
+        return poll
+
+    def vote_poll(self, post_id: int, option_id: int, user_id: int, tenant_id: str = "default") -> Optional[Poll]:
+        """Create or move a user's poll vote and keep option counters correct."""
+        poll = self.db.query(Poll).filter(
+            Poll.post_id == post_id,
+            Poll.tenant_id == tenant_id,
+        ).first()
+        if not poll:
+            return None
+
+        option = self.db.query(PollOption).filter(
+            PollOption.id == option_id,
+            PollOption.poll_id == poll.id,
+            PollOption.tenant_id == tenant_id,
+        ).first()
+        if not option:
+            return None
+
+        existing = self.db.query(PollVote).filter(
+            PollVote.poll_id == poll.id,
+            PollVote.user_id == user_id,
+            PollVote.tenant_id == tenant_id,
+        ).first()
+
+        if existing and existing.option_id == option_id:
+            return poll
+
+        if existing:
+            previous = self.db.query(PollOption).filter(PollOption.id == existing.option_id).first()
+            if previous:
+                previous.vote_count = max(0, (previous.vote_count or 0) - 1)
+            existing.option_id = option_id
+        else:
+            self.db.add(PollVote(
+                poll_id=poll.id,
+                option_id=option_id,
+                user_id=user_id,
+                tenant_id=tenant_id,
+            ))
+
+        option.vote_count = (option.vote_count or 0) + 1
+        self.db.commit()
+        self.db.refresh(poll)
+        return poll

@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.core.hashtag_utils import link_hashtags_to_post
-from app.models.post import Comment, Draft, Post, PostLike, PostRepost, SavedPost
+from app.models.post import Comment, Draft, Poll, Post, PostLike, PostRepost, SavedPost
 from app.repositories.post_repo import PostRepository
 from app.schemas.post import CommentCreate, DraftCreate, MediaCreate, PostCreate, PostUpdate
 
@@ -52,6 +52,14 @@ class PostService:
         if media_in:
             for item in media_in:
                 self.repo.create_media(post.id, item.url, item.media_type, item.meta, tenant_id)
+
+        # 5. Attach a poll if provided
+        if post_in.poll:
+            cleaned_options = [option.strip() for option in post_in.poll.options if option.strip()]
+            unique_options = list(dict.fromkeys(cleaned_options))
+            if len(unique_options) >= 2:
+                post_in.poll.options = unique_options[:4]
+                self.repo.create_poll(post.id, post_in.poll, tenant_id)
 
         self.repo.db.refresh(post)
         return post
@@ -113,6 +121,10 @@ class PostService:
         if not comment or comment.author_id != author_id:
             return False
         return self.repo.delete_comment(comment)
+
+    def vote_poll(self, post_id: int, option_id: int, user_id: int, tenant_id: str = "default") -> Optional[Poll]:
+        """Vote on a post poll."""
+        return self.repo.vote_poll(post_id, option_id, user_id, tenant_id)
 
     # ==========================================
     # LIKE & REPOST BUSINESS LOGIC

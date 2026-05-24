@@ -26,6 +26,8 @@ from app.schemas.post import (
     PostCreate,
     PostResponse,
     PostUpdate,
+    PollResponse,
+    PollVoteRequest,
 )
 from app.services.ai_service import AIService
 from app.services.background_tasks import BackgroundTasksService
@@ -226,6 +228,34 @@ def remove_comment(
 
     _invalidate_feed_cache(x_tenant_id)
     return {"message": "Comment removed successfully"}
+
+
+# ==========================================
+# POLL ENDPOINTS
+# ==========================================
+
+@router.post("/{post_id}/poll/vote", response_model=PollResponse, status_code=status.HTTP_200_OK)
+def vote_poll(
+    post_id: int,
+    vote: PollVoteRequest,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Vote on a post poll. Users can change their vote; counters update in place.
+    """
+    service = PostService(db)
+    poll = service.vote_poll(post_id, vote.option_id, current_user.id, x_tenant_id)
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Poll or option not found"
+        )
+
+    cache_service.delete(f"post:{x_tenant_id}:{post_id}")
+    _invalidate_feed_cache(x_tenant_id)
+    return poll
 
 
 # ==========================================

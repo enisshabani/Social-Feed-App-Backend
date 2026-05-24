@@ -46,7 +46,7 @@ app = FastAPI(
     contact={
         "name": "KaPak Team",
         "url": "https://github.com/kapak",
-        "email": "contact@kapak.local",
+        "email": "contact@kapak.dev",
     },
     docs_url="/docs",
     redoc_url="/redoc",
