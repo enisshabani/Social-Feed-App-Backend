@@ -166,6 +166,38 @@ def upload_avatar(
     return current_user
 
 
+@router.post("/me/cover", response_model=UserResponse)
+def upload_cover(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload a profile cover image.
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File provided is not an image.",
+        )
+    
+    if not file.filename:
+        file_extension = "jpg"
+    else:
+        file_extension = file.filename.split(".")[-1]
+    filename = f"cover_{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+    file_path = os.path.join("uploads", "avatars", filename) # Using same folder for now or create 'covers'
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    current_user.cover_url = f"/uploads/avatars/{filename}"
+    db.commit()
+    db.refresh(current_user)
+    
+    return current_user
+
+
 @router.delete("/me", status_code=status.HTTP_200_OK)
 def delete_my_account(
     current_user: User = Depends(get_current_user),

@@ -37,6 +37,7 @@ class User(TenantMixin, Base):
     display_name = Column(String(100), nullable=True)
     bio = Column(Text, nullable=True)
     avatar_url = Column(String(500), nullable=True)
+    cover_url = Column(String(500), nullable=True)
     location = Column(String(100), nullable=True)
     website = Column(String(255), nullable=True)
 

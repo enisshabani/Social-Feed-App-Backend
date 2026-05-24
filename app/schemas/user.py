@@ -30,6 +30,7 @@ class UserUpdate(BaseModel):
     display_name: Optional[str] = Field(None, max_length=100)
     bio: Optional[str] = Field(None, max_length=500)
     avatar_url: Optional[str] = Field(None, max_length=500)
+    cover_url: Optional[str] = Field(None, max_length=500)
     location: Optional[str] = Field(None, max_length=100)
     website: Optional[str] = Field(None, max_length=255)
 
@@ -63,6 +64,7 @@ class UserResponse(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
     role: str
@@ -83,6 +85,7 @@ class UserPublicResponse(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
     tenant_id: str
