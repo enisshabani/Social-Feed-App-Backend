@@ -782,7 +782,7 @@ async def forgot_password(
     Kërkesë për rishkrim të fjalëkalimit.
     Dërgon një email me linkun.
     """
-    user = _tenant_user_query(db, x_tenant_id).filter(User.email == request.email).first()
+    user = _global_user_by_email(db, request.email)
 
     if not user:
         return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}
