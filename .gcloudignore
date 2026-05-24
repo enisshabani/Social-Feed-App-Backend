@@ -1,0 +1,14 @@
+.git
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+kapak.db
+test.db
+*.log
+celerybeat-schedule
+uploads/
+tests/
+tmp_alembic/
+out.txt

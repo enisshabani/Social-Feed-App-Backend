@@ -21,6 +21,7 @@ import string
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.dependencies import get_current_user
+from app.core.config import get_settings
 from app.models.user import User
 from app.schemas.user import (
     UserCreate,
@@ -35,7 +36,7 @@ from app.schemas.user import (
     TwoFactorSetupResponse,
     TwoFactorVerifyRequest,
 )
-from app.core.email import send_reset_password_email
+from app.core.email import send_reset_password_email, send_verification_email
 from app.core.middleware import normalize_tenant_id
 import pyotp
 import qrcode
@@ -45,6 +46,7 @@ import json
 
 
 router = APIRouter()
+settings = get_settings()
 
 # --- VARIABLAT PËR KUFIZIMIN KUNDËR BRUTE FORCE ---
 LOGIN_ATTEMPTS = {}
@@ -53,6 +55,11 @@ LOCKOUT_MINUTES = 15
 RESET_TOKENS = {}
 TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS = 30
 TWO_FACTOR_ISSUER = "KaPak"
+EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS = 24
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str
 
 
 def _user_query(db: Session):
@@ -61,6 +68,18 @@ def _user_query(db: Session):
 
 def _tenant_user_query(db: Session, tenant_id: str):
     return _user_query(db).filter(User.tenant_id == normalize_tenant_id(tenant_id))
+
+
+def _email_verification_required() -> bool:
+    return settings.EMAIL_VERIFICATION_REQUIRED and bool(settings.MAILTRAP_TOKEN)
+
+
+def _global_user_by_email(db: Session, email: str) -> Optional[User]:
+    return _user_query(db).filter(User.email == email).first()
+
+
+def _global_user_by_username(db: Session, username: str) -> Optional[User]:
+    return _user_query(db).filter(User.username == username).first()
 
 
 def _load_backup_codes(user: User) -> list[str]:
@@ -123,9 +142,21 @@ def _issue_trusted_device_token(user: User) -> str:
         expires_delta=timedelta(days=TRUSTED_DEVICE_TOKEN_EXPIRE_DAYS),
     )
 
+
+def _issue_email_verification_token(user: User) -> str:
+    return create_access_token(
+        data={
+            "sub": str(user.id),
+            "type": "email_verification",
+            "tenant_id": user.tenant_id,
+        },
+        expires_delta=timedelta(hours=EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS),
+    )
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(
     user_data: UserCreate,
+    background_tasks: BackgroundTasks,
     x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
 ):
@@ -160,7 +191,7 @@ def register(
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
         tenant_id=tenant_id,
-        is_verified=True,
+        is_verified=not _email_verification_required(),
     )
     db.add(new_user)
     try:
@@ -172,8 +203,78 @@ def register(
             detail="Username or email already registered",
         )
     db.refresh(new_user)
+    if _email_verification_required():
+        background_tasks.add_task(
+            send_verification_email,
+            new_user.email,
+            _issue_email_verification_token(new_user),
+        )
 
     return new_user
+
+
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    """
+    Verify a user's email address from the emailed verification link.
+    """
+    try:
+        payload = verify_token(token)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Linku i verifikimit është i pavlefshëm ose ka skaduar.",
+        )
+
+    if payload.get("type") != "email_verification":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Linku i verifikimit është i pavlefshëm.",
+        )
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Linku i verifikimit është i pavlefshëm.",
+        )
+
+    user = _user_query(db).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Përdoruesi nuk u gjet.")
+
+    token_tenant = normalize_tenant_id(payload.get("tenant_id"))
+    if user.tenant_id != token_tenant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Linku i verifikimit nuk i përket këtij tenant-i.",
+        )
+
+    if not user.is_verified:
+        user.is_verified = True
+        db.commit()
+
+    return {"message": "Email-i u verifikua me sukses."}
+
+
+@router.post("/resend-verification-email")
+def resend_verification_email(
+    request: ResendVerificationRequest,
+    background_tasks: BackgroundTasks,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+):
+    tenant_id = normalize_tenant_id(x_tenant_id)
+    user = _tenant_user_query(db, tenant_id).filter(User.email == request.email).first()
+
+    if user and not user.is_verified:
+        background_tasks.add_task(
+            send_verification_email,
+            user.email,
+            _issue_email_verification_token(user),
+        )
+
+    return {"message": "Nëse ky email ekziston dhe nuk është verifikuar, një link i ri u dërgua."}
 
 @router.post("/login", response_model=LoginResponse)
 def login(
@@ -237,6 +338,12 @@ def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated",
+        )
+
+    if _email_verification_required() and not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ju lutem verifikoni email-in para se të hyni në llogari.",
         )
 
     # Check 2FA
@@ -521,8 +628,12 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
         if not google_email:
             raise ValueError("Google token nuk përmban email")
         
-        # 2. Kontrollojmë nëse e kemi këtë email në db tonë
+        # 2. Kontrollojmë nëse e kemi këtë email në db tonë.
+        # The current production database still has global unique indexes on email/username,
+        # so social auth must reuse an existing global account instead of failing insert.
         user = _tenant_user_query(db, tenant_id).filter(User.email == google_email).first()
+        if not user:
+            user = _global_user_by_email(db, google_email)
         
         if not user:
             print(f"[GOOGLE AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
@@ -533,6 +644,8 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
 
             existing_user = _tenant_user_query(db, tenant_id).filter(User.username == base_username).first()
+            if not existing_user:
+                existing_user = _global_user_by_username(db, base_username)
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
             
@@ -553,6 +666,8 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             except IntegrityError:
                 db.rollback()
                 user = _tenant_user_query(db, tenant_id).filter(User.email == google_email).first()
+                if not user:
+                    user = _global_user_by_email(db, google_email)
                 if not user:
                     raise
             db.refresh(user)
@@ -656,6 +771,8 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             raise ValueError("GitHub token nuk përmban email ose UID")
         
         user = _tenant_user_query(db, tenant_id).filter(User.email == github_email).first()
+        if not user:
+            user = _global_user_by_email(db, github_email)
         
         if not user:
             print(f"[GITHUB AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
@@ -665,6 +782,8 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
             
             existing_user = _tenant_user_query(db, tenant_id).filter(User.username == base_username).first()
+            if not existing_user:
+                existing_user = _global_user_by_username(db, base_username)
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
             
@@ -685,6 +804,8 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             except IntegrityError:
                 db.rollback()
                 user = _tenant_user_query(db, tenant_id).filter(User.email == github_email).first()
+                if not user:
+                    user = _global_user_by_email(db, github_email)
                 if not user:
                     raise
             db.refresh(user)
