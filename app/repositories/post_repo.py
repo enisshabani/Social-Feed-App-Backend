@@ -24,7 +24,7 @@ from app.models.post import (
     SavedPost,
     Tag,
 )
-from app.schemas.post import CommentCreate, DraftCreate, DraftUpdate, PollCreate, PostCreate, PostUpdate
+from app.schemas.post import CommentCreate, DraftCreate, DraftUpdate, MediaCreate, PollCreate, PostCreate, PostUpdate
 
 
 class PostRepository:
@@ -77,6 +77,7 @@ class PostRepository:
     def update_post(self, post: Post, post_in: PostUpdate) -> Post:
         """Update post content and record edit history."""
         update_data = post_in.model_dump(exclude_unset=True)
+        media_items = update_data.pop("media", None)
 
         # Record history if content changes
         if "content" in update_data and update_data["content"] != post.content:
@@ -91,6 +92,9 @@ class PostRepository:
 
         for field, value in update_data.items():
             setattr(post, field, value)
+
+        if media_items is not None:
+            self.replace_media(post.id, media_items, post.tenant_id)
 
         self.db.commit()
         self.db.refresh(post)
@@ -429,6 +433,25 @@ class PostRepository:
         self.db.commit()
         self.db.refresh(media)
         return media
+
+    def replace_media(self, post_id: int, media_items: List[MediaCreate], tenant_id: str = "default") -> None:
+        """Replace all media attachments for a post."""
+        self.db.query(Media).filter(
+            Media.post_id == post_id,
+            Media.tenant_id == tenant_id,
+        ).delete(synchronize_session=False)
+
+        for item in media_items:
+            url = item.url if hasattr(item, "url") else item.get("url")
+            media_type = item.media_type if hasattr(item, "media_type") else item.get("media_type", "image")
+            meta = item.meta if hasattr(item, "meta") else item.get("meta")
+            self.db.add(Media(
+                post_id=post_id,
+                url=url,
+                media_type=media_type,
+                meta=meta,
+                tenant_id=tenant_id,
+            ))
 
     # ==========================================
     # POLLS

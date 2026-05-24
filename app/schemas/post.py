@@ -129,6 +129,7 @@ class PostCreate(BaseModel):
 class PostUpdate(BaseModel):
     content: Optional[str] = Field(None, min_length=1, max_length=5000)
     visibility: Optional[str] = None
+    media: Optional[List[MediaCreate]] = None
 
 class PostResponse(BaseModel):
     id: int

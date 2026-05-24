@@ -139,7 +139,7 @@ def update_post(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Edit a post's content. Automatically updates parsed tags and records history.
+    Edit a post's content and media. Automatically updates parsed tags and records history.
     """
     service = PostService(db)
     updated = service.update_post(post_id, post_update, current_user.id, x_tenant_id)
