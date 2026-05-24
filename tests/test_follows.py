@@ -44,6 +44,17 @@ def test_get_followers_returns_correct_list(db_session):
     assert len(followers) == 2
     assert followers[0].follower_id in [2, 3]
 
+def test_get_pending_follow_backs_excludes_users_who_follow_back(db_session):
+    service = FollowService(db_session, tenant_id="tenant-1")
+    service.follow_user(follower_id=1, followee_id=2)
+    service.follow_user(follower_id=1, followee_id=3)
+    service.follow_user(follower_id=3, followee_id=1)
+
+    pending = service.get_pending_follow_backs(user_id=1)
+
+    assert len(pending) == 1
+    assert str(pending[0].followee_id) == "2"
+
 def test_get_follow_counts_correct(db_session):
     service = FollowService(db_session, tenant_id="tenant-1")
     service.follow_user(follower_id=1, followee_id=2)

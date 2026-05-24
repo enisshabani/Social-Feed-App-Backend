@@ -104,6 +104,24 @@ def get_following(
     return service.get_following(user_id=user_id, skip=skip, limit=limit)
 
 @router.get(
+    "/pending-follow-backs",
+    response_model=List[FollowResponse],
+    summary="Get pending follow-back reminders",
+    description="Retrieve users the current user follows who have not followed back yet.",
+    responses={
+        200: {"description": "Pending follow-back reminders retrieved"},
+        401: {"description": "Unauthorized - Invalid or missing JWT token"}
+    }
+)
+def get_pending_follow_backs(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Max number of records to return"),
+    service: FollowService = Depends(get_follow_service),
+    current_user: User = Depends(get_current_user)
+):
+    return service.get_pending_follow_backs(user_id=current_user.id, skip=skip, limit=limit)
+
+@router.get(
     "/counts/{user_id}", 
     response_model=FollowCountResponse, 
     summary="Get follower/following counts",

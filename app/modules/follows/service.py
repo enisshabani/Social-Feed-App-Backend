@@ -73,6 +73,24 @@ class FollowService:
             Follow.tenant_id == self.tenant_id
         ).offset(skip).limit(limit).all()
 
+    def get_pending_follow_backs(self, user_id: int, skip: int = 0, limit: int = 50) -> List[Follow]:
+        following = self.db.query(Follow).filter(
+            Follow.follower_id == user_id,
+            Follow.tenant_id == self.tenant_id
+        ).order_by(Follow.created_at.desc()).all()
+
+        pending = []
+        for follow in following:
+            follows_back = self.db.query(Follow).filter(
+                Follow.follower_id == follow.followee_id,
+                Follow.followee_id == user_id,
+                Follow.tenant_id == self.tenant_id
+            ).first()
+            if not follows_back:
+                pending.append(follow)
+
+        return pending[skip:skip + limit]
+
     def get_follow_counts(self, user_id: int) -> dict:
         def fetch():
             followers_count = self.db.query(func.count(Follow.id)).filter(
