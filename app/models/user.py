@@ -5,7 +5,8 @@ SQLAlchemy model for the users table.
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Text, Enum as SQLEnum
+    Column, Integer, String, Boolean, DateTime, Text, Enum as SQLEnum,
+    UniqueConstraint
 )
 import enum
 from app.core.database import Base, TenantMixin
@@ -22,10 +23,14 @@ class User(TenantMixin, Base):
     """User model - core entity for authentication and profiles."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "username", name="uq_users_tenant_username"),
+        UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(50), nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
 
     # Profile info

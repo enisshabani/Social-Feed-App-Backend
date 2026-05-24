@@ -85,6 +85,7 @@ class UserPublicResponse(BaseModel):
     avatar_url: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
+    tenant_id: str
     created_at: datetime
 
     class Config:

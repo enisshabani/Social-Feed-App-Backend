@@ -4,7 +4,7 @@ Endpoints: register, login, refresh token, me.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, BackgroundTasks, Header
 
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
@@ -36,6 +36,7 @@ from app.schemas.user import (
     TwoFactorVerifyRequest,
 )
 from app.core.email import send_reset_password_email
+from app.core.middleware import normalize_tenant_id
 import pyotp
 import qrcode
 import io
@@ -56,6 +57,10 @@ TWO_FACTOR_ISSUER = "KaPak"
 
 def _user_query(db: Session):
     return db.query(User).execution_options(skip_tenant_filter=True)
+
+
+def _tenant_user_query(db: Session, tenant_id: str):
+    return _user_query(db).filter(User.tenant_id == normalize_tenant_id(tenant_id))
 
 
 def _load_backup_codes(user: User) -> list[str]:
@@ -119,7 +124,11 @@ def _issue_trusted_device_token(user: User) -> str:
     )
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
+def register(
+    user_data: UserCreate,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+):
     """
     Register a new user account.
     
@@ -127,16 +136,18 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     - **email**: valid email address
     - **password**: minimum 6 characters
     """
-    # Check if username already exists
-    existing_user = _user_query(db).filter(User.username == user_data.username).first()
+    tenant_id = normalize_tenant_id(x_tenant_id or user_data.tenant_id)
+
+    # Check if username already exists in this tenant
+    existing_user = _tenant_user_query(db, tenant_id).filter(User.username == user_data.username).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken",
         )
 
-    # Check if email already exists
-    existing_email = _user_query(db).filter(User.email == user_data.email).first()
+    # Check if email already exists in this tenant
+    existing_email = _tenant_user_query(db, tenant_id).filter(User.email == user_data.email).first()
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -148,7 +159,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
-        tenant_id=user_data.tenant_id,
+        tenant_id=tenant_id,
         is_verified=True,
     )
     db.add(new_user)
@@ -169,6 +180,7 @@ def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     trusted_device_token: Optional[str] = Form(None),
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
 ):
     """
@@ -178,7 +190,8 @@ def login(
     
     # 1. Kontrollo nëse përdoruesi (ose IP) është bllokuar
     client_ip = request.client.host if request.client else "unknown"
-    lock_key = f"{form_data.username}_{client_ip}"
+    tenant_id = normalize_tenant_id(x_tenant_id)
+    lock_key = f"{tenant_id}_{form_data.username}_{client_ip}"
     
     if lock_key in LOGIN_ATTEMPTS:
         attempt_data = LOGIN_ATTEMPTS[lock_key]
@@ -190,7 +203,7 @@ def login(
             )
 
     # Find user by username or email
-    user = _user_query(db).filter(
+    user = _tenant_user_query(db, tenant_id).filter(
         (User.username == form_data.username) | (User.email == form_data.username)
     ).first()
     
@@ -488,6 +501,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
     Nëse ekziston, thjesht i kthehet JWT token i login.
     """
     try:
+        tenant_id = normalize_tenant_id(payload.tenant_id)
         print(f"[GOOGLE AUTH] Starting authentication with token...")
         
         # 1. Verifikojmë tokenin i cili vjen nga Frontend (Firebase ID Token)
@@ -508,7 +522,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             raise ValueError("Google token nuk përmban email")
         
         # 2. Kontrollojmë nëse e kemi këtë email në db tonë
-        user = _user_query(db).filter(User.email == google_email).first()
+        user = _tenant_user_query(db, tenant_id).filter(User.email == google_email).first()
         
         if not user:
             print(f"[GOOGLE AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
@@ -518,7 +532,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             base_username = base_username[:40]
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
 
-            existing_user = _user_query(db).filter(User.username == base_username).first()
+            existing_user = _tenant_user_query(db, tenant_id).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
             
@@ -531,14 +545,14 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 display_name=google_name or base_username,
                 avatar_url=google_avatar,
                 is_verified=True,
-                tenant_id=payload.tenant_id
+                tenant_id=tenant_id
             )
             db.add(user)
             try:
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                user = _user_query(db).filter(User.email == google_email).first()
+                user = _tenant_user_query(db, tenant_id).filter(User.email == google_email).first()
                 if not user:
                     raise
             db.refresh(user)
@@ -618,6 +632,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
     Nëse ekziston, thjesht i kthehet JWT token i login.
     """
     try:
+        tenant_id = normalize_tenant_id(payload.tenant_id)
         print(f"[GITHUB AUTH] Starting authentication with token...")
         
         # Verifikojmë Firebase ID Token
@@ -640,7 +655,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
         if not github_email:
             raise ValueError("GitHub token nuk përmban email ose UID")
         
-        user = _user_query(db).filter(User.email == github_email).first()
+        user = _tenant_user_query(db, tenant_id).filter(User.email == github_email).first()
         
         if not user:
             print(f"[GITHUB AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
@@ -649,7 +664,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
             base_username = base_username[:40]
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
             
-            existing_user = _user_query(db).filter(User.username == base_username).first()
+            existing_user = _tenant_user_query(db, tenant_id).filter(User.username == base_username).first()
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
             
@@ -662,14 +677,14 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 display_name=github_name or base_username,
                 avatar_url=github_avatar,
                 is_verified=True,
-                tenant_id=payload.tenant_id
+                tenant_id=tenant_id
             )
             db.add(user)
             try:
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                user = _user_query(db).filter(User.email == github_email).first()
+                user = _tenant_user_query(db, tenant_id).filter(User.email == github_email).first()
                 if not user:
                     raise
             db.refresh(user)
@@ -737,13 +752,14 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
 async def forgot_password(
     request: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
 ):
     """
     Kërkesë për rishkrim të fjalëkalimit.
     Dërgon një email me linkun.
     """
-    user = _user_query(db).filter(User.email == request.email).first()
+    user = _tenant_user_query(db, x_tenant_id).filter(User.email == request.email).first()
 
     if not user:
         return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një email për rishkrimin e fjalëkalimit do të dërgohet."}

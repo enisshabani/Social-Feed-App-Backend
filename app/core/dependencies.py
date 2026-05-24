@@ -3,16 +3,18 @@ KaPak - Dependencies
 Shared FastAPI dependencies for injection.
 """
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import oauth2_scheme, verify_token
+from app.core.middleware import normalize_tenant_id
 from app.models.user import User
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
+    x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
 ) -> User:
     """
@@ -42,6 +44,12 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated",
+        )
+    request_tenant = normalize_tenant_id(x_tenant_id)
+    if user.tenant_id != request_tenant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account does not belong to this tenant",
         )
     return user
 

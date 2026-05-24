@@ -4,6 +4,7 @@ Endpoints: profile view, profile update, change password, list users, admin acti
 """
 
 from typing import List
+import logging
 import os
 import shutil
 import uuid
@@ -12,8 +13,27 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.cache import cache_service
 from app.core.security import hash_password, verify_password
 from app.core.dependencies import get_current_user, get_current_active_admin
+from app.models.ai_task import AiTask
+from app.models.notification_preference import NotificationPreference
+from app.models.post import (
+    Comment,
+    Draft,
+    Media,
+    Post,
+    PostAttachment,
+    PostEditHistory,
+    PostLike,
+    PostRepost,
+    PostTag,
+    SavedPost,
+    TimelineItem,
+)
+from app.models.search_history import SearchHistory
+from app.modules.follows.models import Follow
+from app.modules.notifications.models import Notification
 from app.models.user import User, UserRole
 from app.schemas.user import (
     UserResponse,
@@ -23,6 +43,7 @@ from app.schemas.user import (
 )
 
 router = APIRouter()
+logger = logging.getLogger("kapak")
 
 
 @router.get("/", response_model=List[UserPublicResponse])
@@ -150,8 +171,139 @@ def delete_my_account(
     """
     Delete the current user's account permanently from the database.
     """
-    db.delete(current_user)
-    db.commit()
+    user_id = current_user.id
+    user_id_str = str(user_id)
+    tenant_id = current_user.tenant_id
+
+    try:
+        user_post_ids = [
+            post_id
+            for (post_id,) in (
+                db.query(Post.id)
+                .filter(Post.author_id == user_id, Post.tenant_id == tenant_id)
+                .all()
+            )
+        ]
+
+        if user_post_ids:
+            db.query(TimelineItem).filter(
+                TimelineItem.tenant_id == tenant_id,
+                TimelineItem.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(PostTag).filter(PostTag.post_id.in_(user_post_ids)).delete(synchronize_session=False)
+            db.query(PostEditHistory).filter(
+                PostEditHistory.tenant_id == tenant_id,
+                PostEditHistory.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(SavedPost).filter(
+                SavedPost.tenant_id == tenant_id,
+                SavedPost.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(PostLike).filter(
+                PostLike.tenant_id == tenant_id,
+                PostLike.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(PostRepost).filter(
+                PostRepost.tenant_id == tenant_id,
+                PostRepost.original_post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(Comment).filter(
+                Comment.tenant_id == tenant_id,
+                Comment.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(Media).filter(
+                Media.tenant_id == tenant_id,
+                Media.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(PostAttachment).filter(
+                PostAttachment.tenant_id == tenant_id,
+                PostAttachment.post_id.in_(user_post_ids),
+            ).delete(synchronize_session=False)
+            db.query(Post).filter(
+                Post.tenant_id == tenant_id,
+                Post.original_post_id.in_(user_post_ids),
+            ).update({Post.original_post_id: None}, synchronize_session=False)
+            db.query(Post).filter(
+                Post.tenant_id == tenant_id,
+                Post.reply_to_post_id.in_(user_post_ids),
+            ).update({Post.reply_to_post_id: None}, synchronize_session=False)
+
+        db.query(TimelineItem).filter(
+            TimelineItem.tenant_id == tenant_id,
+            (
+                (TimelineItem.owner_user_id == user_id)
+                | (TimelineItem.originator_user_id == user_id)
+            ),
+        ).delete(synchronize_session=False)
+        db.query(Notification).filter(
+            Notification.tenant_id == tenant_id,
+            (
+                (Notification.recipient_id == user_id_str)
+                | (Notification.actor_id == user_id_str)
+            ),
+        ).delete(synchronize_session=False)
+        db.query(Follow).filter(
+            Follow.tenant_id == tenant_id,
+            (
+                (Follow.follower_id == user_id_str)
+                | (Follow.followee_id == user_id_str)
+            ),
+        ).delete(synchronize_session=False)
+        db.query(NotificationPreference).filter(
+            NotificationPreference.tenant_id == tenant_id,
+            NotificationPreference.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(SearchHistory).filter(
+            SearchHistory.tenant_id == tenant_id,
+            SearchHistory.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(AiTask).filter(
+            AiTask.tenant_id == tenant_id,
+            AiTask.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(Draft).filter(
+            Draft.tenant_id == tenant_id,
+            Draft.author_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(SavedPost).filter(
+            SavedPost.tenant_id == tenant_id,
+            SavedPost.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(PostLike).filter(
+            PostLike.tenant_id == tenant_id,
+            PostLike.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(PostRepost).filter(
+            PostRepost.tenant_id == tenant_id,
+            PostRepost.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(Comment).filter(
+            Comment.tenant_id == tenant_id,
+            Comment.author_id == user_id,
+        ).delete(synchronize_session=False)
+        db.query(PostEditHistory).filter(
+            PostEditHistory.tenant_id == tenant_id,
+            PostEditHistory.edited_by == user_id,
+        ).delete(synchronize_session=False)
+
+        db.query(Post).filter(
+            Post.tenant_id == tenant_id,
+            Post.author_id == user_id,
+        ).delete(synchronize_session=False)
+        db.delete(current_user)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to delete account user_id=%s tenant_id=%s: %s", user_id, tenant_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gabim gjatë fshirjes së llogarisë.",
+        )
+
+    cache_service.invalidate_prefix(f"feed:{tenant_id}")
+    cache_service.invalidate_prefix(f"timeline:{tenant_id}:{user_id}")
+    cache_service.invalidate_prefix(f"follow_counts:{tenant_id}:{user_id}")
+    cache_service.invalidate_prefix(f"unread_count:{tenant_id}:{user_id}")
     return {"message": "Account deleted successfully"}
 
 

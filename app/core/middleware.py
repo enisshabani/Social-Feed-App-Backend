@@ -5,10 +5,35 @@ Logging middleware and other request/response processing.
 
 import time
 import logging
+import re
 from fastapi import Request
 from app.core.tenant import set_tenant, reset_tenant
 
 logger = logging.getLogger("kapak")
+
+
+def normalize_tenant_id(value: str | None) -> str:
+    if not value:
+        return "default"
+
+    tenant_id = re.sub(r"[^a-zA-Z0-9_-]", "", value.strip().lower())
+    if not tenant_id or tenant_id in {"www", "localhost", "127001", "0000"}:
+        return "default"
+
+    return tenant_id
+
+
+def tenant_from_host(host: str | None) -> str:
+    if not host:
+        return "default"
+
+    hostname = host.split(":", 1)[0].lower()
+    parts = hostname.split(".")
+
+    if len(parts) > 1:
+        return normalize_tenant_id(parts[0])
+
+    return "default"
 
 
 async def logging_middleware(request: Request, call_next):
@@ -42,18 +67,11 @@ async def logging_middleware(request: Request, call_next):
 
 async def tenant_middleware(request: Request, call_next):
     """
-    Middleware that parses the tenant_id from the subdomain and injects it into ContextVar.
+    Middleware that parses the tenant_id and injects it into ContextVar.
     """
-    host = request.headers.get("host", "")
-    
-    # Simple subdomain parsing logic:
-    # Example: tenant1.app.com -> parts = ['tenant1', 'app', 'com'] -> tenant1
-    # Example: tenant1.localhost:8000 -> parts = ['tenant1', 'localhost:8000'] -> tenant1
-    parts = host.split('.')
-    tenant_id = "default" # Default tenant
-    
-    if len(parts) > 1 and parts[0] != "www" and parts[0] != "localhost":
-        tenant_id = parts[0]
+    tenant_id = normalize_tenant_id(request.headers.get("x-tenant-id"))
+    if tenant_id == "default":
+        tenant_id = tenant_from_host(request.headers.get("host"))
         
     token = set_tenant(tenant_id)
     
