@@ -24,18 +24,28 @@ class AIService:
     def __init__(self):
         self.client = None
         self.is_active = False
+        self.model = "gemini-2.5-flash"
 
-        if openai_available and settings.OPENAI_API_KEY:
-            try:
-                # Instantiate standard v1.0.0+ client
-                self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-                self.is_active = True
-                logger.info("OpenAI client successfully initialized.")
-            except Exception as e:
-                logger.warning(f"Failed to initialize OpenAI client: {e}. AI will operate in Mock Mode.")
-                self.is_active = False
-        else:
-            logger.info("OpenAI key not configured or library missing. Operating in Mock Mode.")
+        if not openai_available:
+            logger.warning("openai package not installed. AI will operate in Mock Mode.")
+            return
+
+        api_key = settings.OPENAI_API_KEY or settings.GOOGLE_API_KEY
+        base_url = settings.GOOGLE_BASE_URL if settings.GOOGLE_API_KEY else None
+
+        if not api_key:
+            logger.info("No AI API key configured. Operating in Mock Mode.")
+            return
+
+        try:
+            kwargs = {"api_key": api_key}
+            if base_url:
+                kwargs["base_url"] = base_url
+            self.client = OpenAI(**kwargs)
+            self.is_active = True
+            logger.info(f"OpenAI client initialized (model={self.model})")
+        except Exception as e:
+            logger.warning(f"Failed to initialize OpenAI client: {e}. AI will operate in Mock Mode.")
 
     def refine_text(self, text: str, style: str = "casual") -> str:
         """
@@ -65,7 +75,7 @@ class AIService:
                 )
 
                 response = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a professional copywriter."},
                         {"role": "user", "content": prompt}

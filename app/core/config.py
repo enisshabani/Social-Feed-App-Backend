@@ -25,10 +25,16 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://127.0.0.1:6379/0"
 
-    # OpenAI
+    # OpenAI / Google AI Studio (OpenAI-compatible endpoint)
     OPENAI_API_KEY: str = ""
+    GOOGLE_API_KEY: str = ""
+    GOOGLE_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+    # Celery (background task queue)
+    CELERY_BROKER_URL: str = "redis://127.0.0.1:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://127.0.0.1:6379/0"
 
     # Email
     FRONTEND_URL: str = "http://localhost:5173"
