@@ -3,46 +3,45 @@ KaPak - Authentication Router
 Endpoints: register, login, refresh token, me.
 """
 
+import base64
+import io
+import json
+import random
+import re
+import string
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Header
 
+import pyotp
+import qrcode
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from google.auth.transport import requests
+from google.oauth2 import id_token
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
-from pydantic import BaseModel
-from google.oauth2 import id_token
-from google.auth.transport import requests
-import uuid
-import re
-import random
-import string
 
 from app.core.database import get_db
-from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.dependencies import get_current_user
+from app.core.email import send_reset_password_email
+from app.core.middleware import normalize_tenant_id
+from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_token
 from app.models.user import User
 from app.schemas.user import (
-    UserCreate,
-    UserResponse,
-    Token,
-    LoginResponse,
     ForgotPasswordRequest,
-    ResetPasswordRequest,
+    LoginResponse,
     RefreshTokenRequest,
+    ResetPasswordRequest,
+    Token,
     TwoFactorEnableResponse,
     TwoFactorLoginRequest,
     TwoFactorSetupResponse,
     TwoFactorVerifyRequest,
+    UserCreate,
+    UserResponse,
 )
-
-from app.core.middleware import normalize_tenant_id
-import pyotp
-import qrcode
-import io
-import base64
-import json
-
 
 router = APIRouter()
 
@@ -139,7 +138,7 @@ def register(
 ):
     """
     Register a new user account.
-    
+
     - **username**: 3-50 chars, alphanumeric + underscore only
     - **email**: valid email address
     - **password**: minimum 6 characters
@@ -196,12 +195,12 @@ def login(
     Login with username and password.
     Returns a JWT access token.
     """
-    
+
     # 1. Kontrollo nëse përdoruesi (ose IP) është bllokuar
     client_ip = request.client.host if request.client else "unknown"
     tenant_id = normalize_tenant_id(x_tenant_id)
     lock_key = f"{tenant_id}_{form_data.username}_{client_ip}"
-    
+
     if lock_key in LOGIN_ATTEMPTS:
         attempt_data = LOGIN_ATTEMPTS[lock_key]
         if attempt_data["locked_until"] and attempt_data["locked_until"] > datetime.now(timezone.utc):
@@ -215,14 +214,14 @@ def login(
     user = _tenant_user_query(db, tenant_id).filter(
         (User.username == form_data.username) | (User.email == form_data.username)
     ).first()
-    
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         # 2. Regjistro provën e dështuar
         if lock_key not in LOGIN_ATTEMPTS:
             LOGIN_ATTEMPTS[lock_key] = {"attempts": 0, "locked_until": None}
-            
+
         LOGIN_ATTEMPTS[lock_key]["attempts"] += 1
-        
+
         # Bllokoje nëse kanë kaluar MAX_ATTEMPTS
         if LOGIN_ATTEMPTS[lock_key]["attempts"] >= MAX_ATTEMPTS:
             LOGIN_ATTEMPTS[lock_key]["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
@@ -230,7 +229,7 @@ def login(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"Shumë prova të dështuara! Jeni bllokuar për {LOCKOUT_MINUTES} minuta."
             )
-            
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Kredenciale të gabuara. Keni edhe {MAX_ATTEMPTS - LOGIN_ATTEMPTS[lock_key]['attempts']} prova.",
@@ -259,7 +258,7 @@ def login(
                     is_trusted = True
             except Exception:
                 pass
-                
+
         if not is_trusted:
             temp_token = create_access_token(
                 data={"sub": str(user.id), "is_2fa_temp": True},
@@ -511,35 +510,35 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
     """
     try:
         tenant_id = normalize_tenant_id(payload.tenant_id)
-        print(f"[GOOGLE AUTH] Starting authentication with token...")
-        
+        print("[GOOGLE AUTH] Starting authentication with token...")
+
         # 1. Verifikojmë tokenin i cili vjen nga Frontend (Firebase ID Token)
         idinfo = id_token.verify_firebase_token(
-            payload.token, 
-            requests.Request(), 
-            audience=FIREBASE_PROJECT_ID, 
+            payload.token,
+            requests.Request(),
+            audience=FIREBASE_PROJECT_ID,
             clock_skew_in_seconds=300
         )
-        
+
         google_email = idinfo.get('email', '')
         google_name = idinfo.get('name', '')
         google_avatar = idinfo.get('picture', '')
-        
+
         print(f"[GOOGLE AUTH] Token verified. Email: {google_email}, Name: {google_name}")
-        
+
         if not google_email:
             raise ValueError("Google token nuk përmban email")
-        
+
         # 2. Kontrollojmë nëse e kemi këtë email në db tonë.
         # The current production database still has global unique indexes on email/username,
         # so social auth must reuse an existing global account instead of failing insert.
         user = _tenant_user_query(db, tenant_id).filter(User.email == google_email).first()
         if not user:
             user = _global_user_by_email(db, google_email)
-        
+
         if not user:
-            print(f"[GOOGLE AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
-            
+            print("[GOOGLE AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
+
             # 3. Nëse NUK është ky email asnjëherë te ne, regjistroje automatikisht!
             base_username = google_email.split('@')[0]
             base_username = base_username[:40]
@@ -550,9 +549,9 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 existing_user = _global_user_by_username(db, base_username)
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
-            
+
             print(f"[GOOGLE AUTH] Përpiqem të krijohet përdorues me username: {base_username}")
-            
+
             user = User(
                 username=base_username,
                 email=google_email,
@@ -573,7 +572,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 if not user:
                     raise
             db.refresh(user)
-            
+
             print(f"[GOOGLE AUTH] Përdoruesi u krijua me ID: {user.id}")
         else:
             print(f"[GOOGLE AUTH] Përdoruesi ekziston me ID: {user.id}")
@@ -584,7 +583,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
             if google_avatar and not user.avatar_url:
                 user.avatar_url = google_avatar
                 db.commit()
-        
+
         # 4. Krijoni JWT token
         if user.two_factor_enabled:
             is_trusted = False
@@ -595,7 +594,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                         is_trusted = True
                 except Exception:
                     pass
-                    
+
             if not is_trusted:
                 temp_token = create_access_token(
                     data={"sub": str(user.id), "is_2fa_temp": True},
@@ -616,10 +615,10 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 "sub": str(user.id),
             }
         )
-        
-        print(f"[GOOGLE AUTH] Token u gjenera me sukses")
+
+        print("[GOOGLE AUTH] Token u gjenera me sukses")
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-        
+
     except ValueError as e:
         print(f"[GOOGLE AUTH ERROR] ValueError: {str(e)}")
         raise HTTPException(
@@ -650,47 +649,47 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
     """
     try:
         tenant_id = normalize_tenant_id(payload.tenant_id)
-        print(f"[GITHUB AUTH] Starting authentication with token...")
-        
+        print("[GITHUB AUTH] Starting authentication with token...")
+
         # Verifikojmë Firebase ID Token
         idinfo = id_token.verify_firebase_token(
-            payload.token, 
-            requests.Request(), 
-            audience=FIREBASE_PROJECT_ID, 
+            payload.token,
+            requests.Request(),
+            audience=FIREBASE_PROJECT_ID,
             clock_skew_in_seconds=300
         )
-        
+
         github_email = idinfo.get('email', '')
         if not github_email:
             github_email = idinfo.get('uid', '') + "@github.kapak.com"
 
         github_name = idinfo.get('name', '')
         github_avatar = idinfo.get('picture', '')
-        
+
         print(f"[GITHUB AUTH] Token verified. Email: {github_email}, Name: {github_name}")
-        
+
         if not github_email:
             raise ValueError("GitHub token nuk përmban email ose UID")
-        
+
         user = _tenant_user_query(db, tenant_id).filter(User.email == github_email).first()
         if not user:
             user = _global_user_by_email(db, github_email)
-        
+
         if not user:
-            print(f"[GITHUB AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
-            
+            print("[GITHUB AUTH] Përdoruesi nuk ekziston. Duke e krijuar...")
+
             base_username = github_email.split('@')[0]
             base_username = base_username[:40]
             base_username = re.sub(r'[^a-zA-Z0-9_]', '', base_username)
-            
+
             existing_user = _tenant_user_query(db, tenant_id).filter(User.username == base_username).first()
             if not existing_user:
                 existing_user = _global_user_by_username(db, base_username)
             if existing_user:
                 base_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
-            
+
             print(f"[GITHUB AUTH] Përpiqem të krijohet përdorues me username: {base_username}")
-            
+
             user = User(
                 username=base_username,
                 email=github_email,
@@ -711,14 +710,14 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 if not user:
                     raise
             db.refresh(user)
-            
+
             print(f"[GITHUB AUTH] Përdoruesi u krijua me ID: {user.id}")
         else:
             print(f"[GITHUB AUTH] Përdoruesi ekziston me ID: {user.id}")
             if github_avatar and not user.avatar_url:
                 user.avatar_url = github_avatar
                 db.commit()
-        
+
         # Krijoni JWT token
         if user.two_factor_enabled:
             is_trusted = False
@@ -729,7 +728,7 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                         is_trusted = True
                 except Exception:
                     pass
-                    
+
             if not is_trusted:
                 temp_token = create_access_token(
                     data={"sub": str(user.id), "is_2fa_temp": True},
@@ -750,10 +749,10 @@ def github_auth(payload: GithubAuthRequest, db: Session = Depends(get_db)):
                 "sub": str(user.id),
             }
         )
-        
-        print(f"[GITHUB AUTH] Token u gjenera me sukses")
+
+        print("[GITHUB AUTH] Token u gjenera me sukses")
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-        
+
     except ValueError as e:
         print(f"[GITHUB AUTH ERROR] ValueError: {str(e)}")
         raise HTTPException(
@@ -784,8 +783,8 @@ async def forgot_password(
     user = _global_user_by_email(db, request.email)
 
     if not user:
-        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit do të shfaqet."}
-    
+        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit do të dërgohet."}
+
     reset_code = ''.join(random.choices(string.digits, k=6))
     RESET_TOKENS[reset_code] = user.email
 
@@ -799,14 +798,14 @@ async def reset_password(
     email = RESET_TOKENS.get(request.token)
     if not email:
         raise HTTPException(status_code=400, detail="Kodi është i pasaktë ose ka skaduar.")
-        
+
     user = _user_query(db).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=400, detail="Përdoruesi nuk u gjet.")
-        
+
     user.hashed_password = hash_password(request.new_password)
     db.commit()
-    
+
     del RESET_TOKENS[request.token]
     return {"message": "Fjalëkalimi u ndryshua me sukses!"}
 
@@ -822,21 +821,21 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token type",
             )
-            
+
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload",
             )
-            
+
         user = _user_query(db).filter(User.id == int(user_id)).first()
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found or inactive",
             )
-            
+
         # Create new access token
         access_token = create_access_token(
             data={
@@ -853,10 +852,10 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
                 "sub": str(user.id),
             }
         )
-        
+
         return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
-        
-    except Exception as e:
+
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",

@@ -4,18 +4,23 @@ Full-text search across posts, users, and hashtags with pagination.
 """
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import exc as sa_exc
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func, text, exc as sa_exc
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.user import User
-from app.models.post import Post, Comment
 from app.models.hashtag import Hashtag
+from app.models.post import Comment, Post
 from app.models.search_history import SearchHistory
+from app.models.user import User
 from app.schemas.search import (
-    SearchPostsResult, SearchUsersResult, SearchHashtagsResult,
-    SearchPostItem, MatchContext, MatchedComment,
+    MatchContext,
+    MatchedComment,
+    SearchHashtagsResult,
+    SearchPostItem,
+    SearchPostsResult,
+    SearchUsersResult,
 )
 from app.schemas.user import UserPublicResponse
 
@@ -99,7 +104,7 @@ def search_posts(
         .filter(query_filter)
     )
     direct_post_ids = {row.id for row in direct_query.with_entities(Post.id).all()}
-    direct_total = direct_query.count()
+    direct_query.count()
 
     # Phase 1b: comment matches (only when requested)
     comment_post_ids = set()

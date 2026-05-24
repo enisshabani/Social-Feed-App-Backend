@@ -1,6 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class UserBriefSchema(BaseModel):
     id: int
@@ -14,10 +16,10 @@ class FollowResponse(BaseModel):
     follower_id: int = Field(..., examples=[1])
     followee_id: int = Field(..., examples=[2])
     created_at: datetime = Field(..., examples=["2026-05-22T12:00:00Z"])
-    
+
     follower: Optional[UserBriefSchema] = None
     followee: Optional[UserBriefSchema] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 class FollowCountResponse(BaseModel):

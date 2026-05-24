@@ -1,4 +1,3 @@
-import sys
 from app.core.database import SessionLocal
 from app.models.user import User
 

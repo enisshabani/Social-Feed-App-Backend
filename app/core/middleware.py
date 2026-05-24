@@ -3,11 +3,13 @@ KaPak - Middleware
 Logging middleware and other request/response processing.
 """
 
-import time
 import logging
 import re
+import time
+
 from fastapi import Request
-from app.core.tenant import set_tenant, reset_tenant
+
+from app.core.tenant import reset_tenant, set_tenant
 
 logger = logging.getLogger("kapak")
 
@@ -76,9 +78,9 @@ async def tenant_middleware(request: Request, call_next):
     tenant_id = normalize_tenant_id(header_tenant)
     if not header_tenant:
         tenant_id = tenant_from_host(request.headers.get("host"))
-        
+
     token = set_tenant(tenant_id)
-    
+
     try:
         response = await call_next(request)
         # Optional: Add tenant to headers for debugging

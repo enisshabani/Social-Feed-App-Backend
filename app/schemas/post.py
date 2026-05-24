@@ -3,11 +3,12 @@ KaPak - Posts & Feed Schemas
 Pydantic models for data validation and API request/response payloads.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import Optional, List
-from app.schemas.user import UserPublicResponse
+from typing import List, Optional
 
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.user import UserPublicResponse
 
 # ==========================================
 # MEDIA SCHEMAS

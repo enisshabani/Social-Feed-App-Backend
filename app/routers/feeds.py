@@ -4,13 +4,14 @@ API Endpoints for Home Feed, User Timelines, Hashtags, and Trending/Explore list
 Supports Redis/In-Memory caching for optimal performance.
 """
 
-from fastapi import APIRouter, Depends, Query, Header
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 
-from app.core.database import get_db
+from fastapi import APIRouter, Depends, Header, Query
+from sqlalchemy.orm import Session
+
 from app.core.cache import cache_service
-from app.schemas.post import PostBriefResponse, HashtagStatsResponse, FeedResponse
+from app.core.database import get_db
+from app.schemas.post import FeedResponse, PostBriefResponse
 from app.services.post_service import PostService
 
 router = APIRouter()
@@ -37,7 +38,7 @@ def get_home_feed(
 
     service = PostService(db)
     posts = service.list_feed(x_tenant_id, skip, limit)
-    
+
     # Check if there are potentially more items
     has_more = len(posts) == limit
     next_cursor = str(skip + limit) if has_more else None

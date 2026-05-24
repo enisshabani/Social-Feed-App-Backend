@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, status, Query
-from sqlalchemy.orm import Session
 from typing import Optional
+
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
-
-from app.modules.notifications.schemas import NotificationListResponse, MarkReadResponse, NotificationPreferenceSchema
 from app.modules.notifications.models import NotificationType
+from app.modules.notifications.schemas import MarkReadResponse, NotificationListResponse, NotificationPreferenceSchema
 from app.modules.notifications.service import NotificationService
 
 router = APIRouter(
@@ -18,8 +18,8 @@ def get_notification_service(db: Session = Depends(get_db), current_user: User =
     return NotificationService(db=db, tenant_id=current_user.tenant_id)
 
 @router.get(
-    "", 
-    response_model=NotificationListResponse, 
+    "",
+    response_model=NotificationListResponse,
     summary="Get user notifications",
     description="Retrieve paginated notifications for the current user. Can be filtered by type and read status.",
     responses={
@@ -45,8 +45,8 @@ def get_notifications(
     return NotificationListResponse(items=items, unread_count=unread_count, total=total)
 
 @router.put(
-    "/{notification_id}/read", 
-    response_model=MarkReadResponse, 
+    "/{notification_id}/read",
+    response_model=MarkReadResponse,
     summary="Mark a notification as read",
     description="Mark a specific notification as read. Fails if the notification belongs to another user.",
     responses={
@@ -65,8 +65,8 @@ def mark_as_read(
     return MarkReadResponse(success=True, message="Notification marked as read")
 
 @router.put(
-    "/read-all", 
-    response_model=MarkReadResponse, 
+    "/read-all",
+    response_model=MarkReadResponse,
     summary="Mark all notifications as read",
     description="Mark all unread notifications for the current user as read in bulk.",
     responses={
@@ -99,8 +99,8 @@ def clear_notifications(
     return MarkReadResponse(success=True, message=f"Cleared {deleted} notifications")
 
 @router.delete(
-    "/{notification_id}", 
-    status_code=status.HTTP_204_NO_CONTENT, 
+    "/{notification_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a notification",
     description="Delete a specific notification. Fails if it does not belong to the user.",
     responses={
@@ -118,7 +118,7 @@ def delete_notification(
     service.delete_notification(notification_id=notification_id, recipient_id=current_user.id)
 
 @router.get(
-    "/unread-count", 
+    "/unread-count",
     summary="Get unread notification count",
     description="Get the total count of unread notifications for the current authenticated user.",
     responses={

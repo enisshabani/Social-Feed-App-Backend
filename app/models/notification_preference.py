@@ -1,8 +1,11 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Index, Integer
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+
 
 class NotificationPreference(Base):
     __tablename__ = "notification_preferences"
@@ -20,7 +23,7 @@ class NotificationPreference(Base):
     filter_not_following = Column(Boolean, default=False, nullable=False)
     filter_not_followed_by = Column(Boolean, default=False, nullable=False)
     filter_new_accounts = Column(Boolean, default=False, nullable=False)
-    
+
     # Preferences - Unread notifications
     highlight_unread = Column(Boolean, default=True, nullable=False)
 
@@ -30,9 +33,9 @@ class NotificationPreference(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime(timezone=True), 
-        default=lambda: datetime.now(timezone.utc), 
-        onupdate=lambda: datetime.now(timezone.utc), 
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 

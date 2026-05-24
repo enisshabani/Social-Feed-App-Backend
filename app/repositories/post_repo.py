@@ -3,15 +3,25 @@ KaPak - Post Repository
 Data Access Layer (DAL) for managing all database queries related to posts.
 """
 
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, and_
 from typing import List, Optional, Tuple
+
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
 from app.models.post import (
-    Post, Comment, PostLike, PostRepost,
-    Media, Tag, PostTag, Draft, SavedPost,
-    PostEditHistory, HashtagStats, TimelineItem
+    Comment,
+    Draft,
+    HashtagStats,
+    Media,
+    Post,
+    PostEditHistory,
+    PostLike,
+    PostRepost,
+    PostTag,
+    SavedPost,
+    Tag,
 )
-from app.schemas.post import PostCreate, PostUpdate, CommentCreate, DraftCreate, DraftUpdate
+from app.schemas.post import CommentCreate, DraftCreate, DraftUpdate, PostCreate, PostUpdate
 
 
 class PostRepository:
@@ -51,7 +61,7 @@ class PostRepository:
         """List root level posts (not replies) ordered by creation date."""
         return self.db.query(Post).filter(
             Post.tenant_id == tenant_id,
-            Post.reply_to_post_id == None
+            Post.reply_to_post_id is None
         ).order_by(desc(Post.created_at)).offset(skip).limit(limit).all()
 
     def list_user_posts(self, user_id: int, tenant_id: str = "default", skip: int = 0, limit: int = 20) -> List[Post]:
@@ -64,7 +74,7 @@ class PostRepository:
     def update_post(self, post: Post, post_in: PostUpdate) -> Post:
         """Update post content and record edit history."""
         update_data = post_in.model_dump(exclude_unset=True)
-        
+
         # Record history if content changes
         if "content" in update_data and update_data["content"] != post.content:
             history = PostEditHistory(
@@ -102,7 +112,7 @@ class PostRepository:
             tenant_id=tenant_id
         )
         self.db.add(comment)
-        
+
         # Increment comment reply_count
         post = self.get_post_by_id(post_id, tenant_id)
         if post:
@@ -117,7 +127,7 @@ class PostRepository:
         post = self.get_post_by_id(comment.post_id, comment.tenant_id)
         if post:
             post.reply_count = max(0, (post.reply_count or 1) - 1)
-            
+
         self.db.delete(comment)
         self.db.commit()
         return True
@@ -140,7 +150,7 @@ class PostRepository:
             PostLike.user_id == user_id,
             PostLike.tenant_id == tenant_id
         ).first()
-        
+
         if existing:
             return existing
 
@@ -199,7 +209,7 @@ class PostRepository:
         original_post = self.get_post_by_id(post_id, tenant_id)
         if original_post:
             original_post.repost_count = (original_post.repost_count or 0) + 1
-            
+
             repost_post_record = Post(
                 content=original_post.content,
                 author_id=user_id,
@@ -231,7 +241,7 @@ class PostRepository:
         repost_post = self.db.query(Post).filter(
             Post.author_id == user_id,
             Post.original_post_id == post_id,
-            Post.is_repost == True,
+            Post.is_repost,
             Post.tenant_id == tenant_id
         ).first()
         if repost_post:

@@ -7,8 +7,8 @@ from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import oauth2_scheme, verify_token
 from app.core.middleware import normalize_tenant_id
+from app.core.security import oauth2_scheme, verify_token
 from app.models.user import User
 
 

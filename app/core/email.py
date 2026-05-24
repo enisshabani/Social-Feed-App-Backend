@@ -1,5 +1,6 @@
 import logging
 import uuid
+
 import mailtrap as mt
 
 from app.core.config import get_settings
@@ -43,7 +44,7 @@ async def send_reset_password_email(email_to: str, reset_token: str):
     <br><br>
     <p>Nëse nuk keni kërkuar një fjalëkalim të ri, thjesht injorojeni këtë email.</p>
     """
-    
+
     _send_email(email_to, "Rikthe Fjalëkalimin - KaPak", html_content, "Password Reset")
 
 

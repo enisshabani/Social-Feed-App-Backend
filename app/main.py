@@ -1,13 +1,13 @@
 import logging
-from contextlib import asynccontextmanager
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
-from app.core.database import engine, Base
+from app.core.database import Base, engine
 from app.core.middleware import logging_middleware, tenant_middleware
 
 # Krijohet direktoria përpara se FastAPI të bëjë mount StaticFiles
@@ -27,12 +27,12 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
     logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    
+
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Database tables created/verified")
-    
+
     yield
-    
+
     logger.info(f"👋 Shutting down {settings.APP_NAME}")
 
 
@@ -48,8 +48,8 @@ app = FastAPI(
         "url": "https://github.com/kapak",
         "email": "contact@kapak.local",
     },
-    docs_url="/docs",           
-    redoc_url="/redoc",         
+    docs_url="/docs",
+    redoc_url="/redoc",
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
@@ -80,17 +80,13 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ─── Routers ────────────────────────────────────────────────
 # Personi 1 - Auth & Users
-from app.routers import auth, users
-
-# Personi 2 - Posts & Feed
-from app.routers import posts, feeds
-
-# Personi 4 - Search & Hashtags
-from app.routers import hashtags, search, ai, tasks
-
 # Personi 3 - Follows & Notifications
 from app.modules.follows.router import router as follows_router
 from app.modules.notifications.router import router as notifications_router
+
+# Personi 2 - Posts & Feed
+# Personi 4 - Search & Hashtags
+from app.routers import ai, auth, feeds, hashtags, posts, search, tasks, users
 
 app.include_router(auth.router,          prefix="/api/v1/auth",          tags=["Authentication"])
 app.include_router(users.router,         prefix="/api/v1/users",         tags=["Users"])

@@ -5,8 +5,10 @@ Implements write-on-write timeline fan-out, media processing, and notification d
 """
 
 import logging
+
 from sqlalchemy.orm import Session
-from app.models.post import Post, TimelineItem, Media
+
+from app.models.post import Media, TimelineItem
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -27,12 +29,12 @@ class BackgroundTasksService:
             # 1. Fetch author's followers (Simulated check/lookup)
             # In a full follow system, we would query the follows table:
             # followers = db.query(Follow).filter(Follow.followed_id == author_id).all()
-            
+
             # Since the Follow module is built by another team, we'll fetch all active users
             # who are not the author as simulated followers, representing a global fan-out.
             followers = db.query(User).filter(
                 User.id != author_id,
-                User.is_active == True
+                User.is_active
             ).all()
 
             timeline_items = []
@@ -60,7 +62,7 @@ class BackgroundTasksService:
         """
         try:
             logger.info(f"Processing media attachments for post {post_id}...")
-            
+
             # Fetch post media
             media_items = db.query(Media).filter(
                 Media.post_id == post_id,
@@ -75,7 +77,7 @@ class BackgroundTasksService:
                     "optimized": True,
                     "processed_at": "background-worker"
                 }
-            
+
             if media_items:
                 db.commit()
                 logger.info(f"Optimized {len(media_items)} media items.")
@@ -99,7 +101,7 @@ class BackgroundTasksService:
                 # Find mentioned user
                 target_user = db.query(User).filter(
                     User.username == username,
-                    User.is_active == True
+                    User.is_active
                 ).first()
 
                 if target_user:
@@ -107,6 +109,6 @@ class BackgroundTasksService:
                     # notification = Notification(user_id=target_user.id, type="mention", post_id=post_id)
                     # db.add(notification)
                     logger.info(f"Simulating push notification dispatch to user: {username}")
-            
+
         except Exception as e:
             logger.error(f"Error handling post mentions/notifications: {e}")

@@ -5,6 +5,7 @@ Provides a mock fallback when OpenAI credentials are not provided.
 """
 
 import logging
+
 from app.core.config import get_settings
 
 try:
@@ -97,7 +98,7 @@ class AIService:
         """Simulate refinement locally when OpenAI is inactive."""
         # Simple enhancements based on style
         clean_text = text.strip()
-        
+
         if style.lower() == "professional":
             return f"I would like to state: {clean_text} #Professional"
         elif style.lower() == "witty":

@@ -6,7 +6,8 @@ Implements Redis caching with a seamless in-memory dictionary fallback when Redi
 import json
 import logging
 import time
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
+
 from app.core.config import get_settings
 
 try:

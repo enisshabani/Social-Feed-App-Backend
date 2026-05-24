@@ -1,7 +1,9 @@
 import json
 import logging
-from typing import Callable, Any
+from typing import Any, Callable
+
 import redis
+
 from app.core.config import get_settings
 
 logger = logging.getLogger("kapak.redis")

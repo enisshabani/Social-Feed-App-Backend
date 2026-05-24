@@ -3,9 +3,10 @@ KaPak - AI Task Schemas
 Pydantic models for AI task request/response payloads.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AiTaskCreate(BaseModel):

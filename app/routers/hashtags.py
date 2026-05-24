@@ -4,21 +4,20 @@ API Endpoints for trending hashtags, trending statuses, and hashtag-filtered pos
 """
 
 from datetime import datetime, timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
 from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import desc, func
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.models.hashtag import ContentHashtag, Hashtag
+from app.models.post import Comment, Post, PostLike, PostRepost
 from app.models.user import User
-from app.models.hashtag import Hashtag, ContentHashtag
-from app.models.post import Post, Comment, PostLike, PostRepost
 from app.schemas.hashtag import (
-    HashtagResponse,
-    HashtagTrendingResponse,
     HashtagHistoryItem,
+    HashtagTrendingResponse,
     TrendingPostResponse,
 )
 from app.schemas.post import PostResponse

@@ -3,11 +3,13 @@ KaPak - Search Schemas
 Pydantic models for search request/response payloads.
 """
 
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from pydantic import BaseModel
+
+from app.schemas.hashtag import HashtagResponse
 from app.schemas.post import PostResponse
 from app.schemas.user import UserPublicResponse
-from app.schemas.hashtag import HashtagResponse
 
 
 class MatchedComment(BaseModel):

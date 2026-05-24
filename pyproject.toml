@@ -1,0 +1,26 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warnings
+]
+ignore = [
+    "E402",  # module level import not at top (needed for sys.path / env setup)
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"app/services/ai_service.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

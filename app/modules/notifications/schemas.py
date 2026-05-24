@@ -1,7 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from app.modules.notifications.models import NotificationType
+
 
 class UserBriefSchema(BaseModel):
     id: int
@@ -18,7 +21,7 @@ class NotificationResponse(BaseModel):
     entity_id: Optional[int] = Field(default=None, examples=[42])
     is_read: bool = Field(..., examples=[False])
     created_at: datetime = Field(..., examples=["2026-05-22T12:00:00Z"])
-    
+
     actor: Optional[UserBriefSchema] = None
 
     model_config = ConfigDict(from_attributes=True)

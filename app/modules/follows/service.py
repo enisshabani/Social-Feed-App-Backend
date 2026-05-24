@@ -1,10 +1,12 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import List
 
-from app.modules.follows.models import Follow
-from app.modules.follows.exceptions import AlreadyFollowingError, NotFollowingError, SelfFollowError
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from app.core.redis import get_or_set_cache, invalidate_cache
+from app.modules.follows.exceptions import AlreadyFollowingError, NotFollowingError, SelfFollowError
+from app.modules.follows.models import Follow
+
 
 class FollowService:
     def __init__(self, db: Session, tenant_id: str):
@@ -14,16 +16,16 @@ class FollowService:
     def follow_user(self, follower_id: int, followee_id: int) -> Follow:
         if follower_id == followee_id:
             raise SelfFollowError()
-            
+
         existing = self.db.query(Follow).filter(
             Follow.follower_id == follower_id,
             Follow.followee_id == followee_id,
             Follow.tenant_id == self.tenant_id
         ).first()
-        
+
         if existing:
             raise AlreadyFollowingError()
-            
+
         new_follow = Follow(
             follower_id=follower_id,
             followee_id=followee_id,
@@ -32,30 +34,30 @@ class FollowService:
         self.db.add(new_follow)
         self.db.commit()
         self.db.refresh(new_follow)
-        
+
         # Invalidate caches
         invalidate_cache(f"follow_counts:{self.tenant_id}:{follower_id}")
         invalidate_cache(f"follow_counts:{self.tenant_id}:{followee_id}")
         invalidate_cache(f"is_following:{self.tenant_id}:{follower_id}:{followee_id}")
-        
+
         return new_follow
 
     def unfollow_user(self, follower_id: int, followee_id: int) -> None:
         if follower_id == followee_id:
             raise SelfFollowError()
-            
+
         existing = self.db.query(Follow).filter(
             Follow.follower_id == follower_id,
             Follow.followee_id == followee_id,
             Follow.tenant_id == self.tenant_id
         ).first()
-        
+
         if not existing:
             raise NotFollowingError()
-            
+
         self.db.delete(existing)
         self.db.commit()
-        
+
         # Invalidate caches
         invalidate_cache(f"follow_counts:{self.tenant_id}:{follower_id}")
         invalidate_cache(f"follow_counts:{self.tenant_id}:{followee_id}")
@@ -97,12 +99,12 @@ class FollowService:
                 Follow.followee_id == user_id,
                 Follow.tenant_id == self.tenant_id
             ).scalar() or 0
-            
+
             following_count = self.db.query(func.count(Follow.id)).filter(
                 Follow.follower_id == user_id,
                 Follow.tenant_id == self.tenant_id
             ).scalar() or 0
-            
+
             return {
                 "followers_count": followers_count,
                 "following_count": following_count

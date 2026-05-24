@@ -3,12 +3,12 @@ KaPak - User Model
 SQLAlchemy model for the users table.
 """
 
-from datetime import datetime, timezone
-from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Text, Enum as SQLEnum,
-    UniqueConstraint
-)
 import enum
+from datetime import datetime, timezone
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Enum as SQLEnum
+
 from app.core.database import Base, TenantMixin
 
 
@@ -47,7 +47,7 @@ class User(TenantMixin, Base):
     # Account status
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=True, nullable=False)
-    
+
     # Two-Factor Authentication
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
     two_factor_secret = Column(String(255), nullable=True)

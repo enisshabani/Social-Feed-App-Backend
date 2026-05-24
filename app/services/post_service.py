@@ -5,11 +5,13 @@ Business Logic Layer for validating, filtering, formatting posts, parsing tags, 
 
 import re
 from typing import List, Optional, Tuple
+
 from sqlalchemy.orm import Session
-from app.repositories.post_repo import PostRepository
-from app.models.post import Post, Comment, PostLike, PostRepost, Draft, SavedPost
-from app.schemas.post import PostCreate, PostUpdate, CommentCreate, DraftCreate, DraftUpdate, MediaCreate
+
 from app.core.hashtag_utils import link_hashtags_to_post
+from app.models.post import Comment, Draft, Post, PostLike, PostRepost, SavedPost
+from app.repositories.post_repo import PostRepository
+from app.schemas.post import CommentCreate, DraftCreate, MediaCreate, PostCreate, PostUpdate
 
 
 class PostService:
@@ -30,7 +32,7 @@ class PostService:
         """Create a post, parse hashtags/mentions, enrich with HTML, and attach media."""
         # 1. Parse and generate HTML content representation
         content_html = self._enrich_content_to_html(post_in.content)
-        
+
         # 2. Create the post in DB
         # Temp modification to set html content since schema doesn't pass content_html directly
         post = self.repo.create_post(post_in, author_id, tenant_id)
@@ -75,7 +77,7 @@ class PostService:
         # Process text updates
         if post_in.content is not None:
             post.content_html = self._enrich_content_to_html(post_in.content)
-            
+
             # Re-process hashtags (simple version: add newly parsed ones)
             hashtags = self._extract_hashtags(post_in.content)
             for tag_name in hashtags:
@@ -175,10 +177,10 @@ class PostService:
             content=draft.content,
             visibility="public"
         )
-        
+
         # Publish live post
         post = self.create_post(post_in, author_id, tenant_id)
-        
+
         # Remove draft
         self.repo.delete_draft(draft)
         return post

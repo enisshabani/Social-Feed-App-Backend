@@ -3,8 +3,9 @@ KaPak - AiTask Model
 Tracks Celery async task results for AI operations.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
+
 from app.core.database import Base
 
 

@@ -1,17 +1,16 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
 
-from app.core.database import Base
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 from app.core.config import get_settings
+from app.core.database import Base
 
 # Import YOUR models
-from app.modules.follows.models import Follow
-from app.modules.notifications.models import Notification
-from app.models.notification_preference import NotificationPreference
 
 config = context.config
 settings = get_settings()
@@ -21,7 +20,8 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-from sqlalchemy import Table, Column, String
+from sqlalchemy import Column, String, Table
+
 Table("users", target_metadata, Column("id", String(36), primary_key=True), extend_existing=True)
 Table("posts", target_metadata, Column("id", String(36), primary_key=True), extend_existing=True)
 

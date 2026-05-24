@@ -1,8 +1,11 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, ForeignKey, DateTime, UniqueConstraint, Index
+
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+
 
 class Follow(Base):
     __tablename__ = "follows"

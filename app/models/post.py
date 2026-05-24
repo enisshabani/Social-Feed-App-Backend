@@ -4,12 +4,14 @@ SQLAlchemy models for Posts, Comments, Likes, Reposts,
 Media, Tags, Drafts, Saved Posts, Edit History, and Timeline.
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.core.database import Base, TenantMixin
 import enum
 
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from app.core.database import Base, TenantMixin
 
 # ==========================================
 # ENUMS

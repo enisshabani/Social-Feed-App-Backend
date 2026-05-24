@@ -6,10 +6,10 @@ Password hashing and JWT token creation/verification.
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 
 from app.core.config import get_settings
 
@@ -38,11 +38,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
     Create a JWT access token.
-    
+
     Args:
         data: Payload data (must include 'sub' with user identifier)
         expires_delta: Optional custom expiration time
-    
+
     Returns:
         Encoded JWT token string
     """
@@ -57,11 +57,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
     Create a JWT refresh token.
-    
+
     Args:
         data: Payload data (must include 'sub' with user identifier)
         expires_delta: Optional custom expiration time
-    
+
     Returns:
         Encoded JWT refresh token string
     """
@@ -77,13 +77,13 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
 def verify_token(token: str) -> dict:
     """
     Verify and decode a JWT token.
-    
+
     Args:
         token: JWT token string
-    
+
     Returns:
         Decoded token payload
-    
+
     Raises:
         HTTPException: If token is invalid or expired
     """

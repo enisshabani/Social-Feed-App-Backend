@@ -5,6 +5,7 @@ Initializes Celery with Redis broker and configures periodic beat schedule.
 
 from celery import Celery
 from celery.schedules import crontab
+
 from app.core.config import get_settings
 
 settings = get_settings()

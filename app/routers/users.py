@@ -3,19 +3,19 @@ KaPak - Users Router
 Endpoints: profile view, profile update, change password, list users, admin actions.
 """
 
-from typing import List
 import logging
 import os
 import shutil
 import uuid
+from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
 from app.core.cache import cache_service
+from app.core.database import get_db
+from app.core.dependencies import get_current_active_admin, get_current_user
 from app.core.security import hash_password, verify_password
-from app.core.dependencies import get_current_user, get_current_active_admin
 from app.models.ai_task import AiTask
 from app.models.notification_preference import NotificationPreference
 from app.models.post import (
@@ -32,14 +32,14 @@ from app.models.post import (
     TimelineItem,
 )
 from app.models.search_history import SearchHistory
+from app.models.user import User, UserRole
 from app.modules.follows.models import Follow
 from app.modules.notifications.models import Notification
-from app.models.user import User, UserRole
 from app.schemas.user import (
-    UserResponse,
-    UserPublicResponse,
-    UserUpdate,
     PasswordChange,
+    UserPublicResponse,
+    UserResponse,
+    UserUpdate,
 )
 
 router = APIRouter()
@@ -59,7 +59,7 @@ def list_users(
     """
     users = (
         db.query(User)
-        .filter(User.is_active == True)
+        .filter(User.is_active)
         .offset(skip)
         .limit(limit)
         .all()
@@ -153,16 +153,17 @@ def upload_avatar(
         file_extension = "jpg"
     else:
         file_extension = file.filename.split(".")[-1]
+
     filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
     file_path = os.path.join("uploads", "avatars", filename)
-    
+
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
+
     current_user.avatar_url = f"/uploads/avatars/{filename}"
     db.commit()
     db.refresh(current_user)
-    
+
     return current_user
 
 

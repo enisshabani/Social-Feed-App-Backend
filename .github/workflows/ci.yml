@@ -2,9 +2,9 @@ name: KaPak Backend CI
 
 on:
   push:
-    branches: [ "main", "feature/backend-posts" ]
+    branches: ["main", "feature/backend-posts"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   test:
@@ -25,23 +25,75 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    defaults:
+      run:
+        working-directory: ./Social-Feed-App-Backend
+
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Run Pytest
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kapak_test
-        SECRET_KEY: test_secret_key_ci_running
-      run: |
-        python -m pytest
+      - name: Run Pytest
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kapak_test
+          SECRET_KEY: test_secret_key_ci_running
+        run: |
+          python -m pytest
+
+  lint:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Social-Feed-App-Backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Run Ruff
+        run: ruff check .
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Social-Feed-App-Backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Social-Feed-App-Backend
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        # To push: add docker/login-action and set push: true + tags

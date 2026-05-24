@@ -1,7 +1,8 @@
 import re
+
 from sqlalchemy.orm import Session
 
-from app.models.hashtag import Hashtag, ContentHashtag
+from app.models.hashtag import ContentHashtag, Hashtag
 
 
 def extract_hashtags(content: str) -> list[str]:

@@ -3,9 +3,10 @@ KaPak - Hashtag Models
 SQLAlchemy models for Hashtag and ContentHashtag (many-to-many join).
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, CheckConstraint
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.core.database import Base
 
 

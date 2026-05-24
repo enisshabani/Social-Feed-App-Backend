@@ -6,7 +6,6 @@ Provides helpers for hashtag suggestion, sentiment analysis, and interest profil
 
 import json
 import logging
-import time
 from typing import Optional
 
 from app.core.config import get_settings
@@ -69,7 +68,7 @@ class OpenAIClient:
         except Exception as e:
             err_str = str(e)
             if "429" in err_str:
-                logger.warning(f"Rate limited — using mock fallback")
+                logger.warning("Rate limited — using mock fallback")
             else:
                 logger.error(f"AI call failed: {err_str[:200]}")
             return None

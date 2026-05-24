@@ -4,13 +4,14 @@ Periodic background jobs: trending recalculation, cleanup, token expiry.
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import create_engine, desc, func
 from sqlalchemy.orm import sessionmaker
 
+from app.core.cache import cache_service
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
-from app.core.cache import cache_service
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -27,7 +28,7 @@ def recalculate_trending_hashtags(tenant_id: str = "default"):
     """
     db = _SessionLocal()
     try:
-        from app.models.hashtag import Hashtag, ContentHashtag
+        from app.models.hashtag import ContentHashtag, Hashtag
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 

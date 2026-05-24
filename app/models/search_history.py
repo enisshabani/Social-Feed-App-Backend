@@ -3,8 +3,9 @@ KaPak - SearchHistory Model
 Logs user search queries for analytics and personalisation.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
+
 from app.core.database import Base
 
 

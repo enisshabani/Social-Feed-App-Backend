@@ -1,8 +1,9 @@
 import pytest
-from app.modules.notifications.models import Notification, NotificationType
-from app.modules.notifications.service import NotificationService
-from app.main import app
+
 from app.core.dependencies import get_current_user
+from app.main import app
+from app.modules.notifications.models import Notification, NotificationType
+
 
 # Pre-populate some notifications for integration tests
 @pytest.fixture
@@ -44,7 +45,7 @@ def test_mark_notification_read_returns_200(test_client, populated_db):
 def test_mark_all_read_returns_200(test_client, populated_db):
     response = test_client.put("/api/v1/notifications/read-all")
     assert response.status_code == 200
-    
+
     # Verify via get
     get_response = test_client.get("/api/v1/notifications")
     assert get_response.json()["unread_count"] == 0
@@ -53,7 +54,7 @@ def test_delete_notification_returns_204(test_client, populated_db):
     n1, n2 = populated_db
     response = test_client.delete(f"/api/v1/notifications/{n1.id}")
     assert response.status_code == 204
-    
+
     get_response = test_client.get("/api/v1/notifications")
     assert get_response.json()["total"] == 1
 
@@ -75,10 +76,10 @@ def test_get_unread_count_returns_200(test_client, populated_db):
 def test_unauthorized_returns_401(test_client):
     # Temporarily remove override
     app.dependency_overrides.pop(get_current_user, None)
-    
+
     response = test_client.get("/api/v1/notifications")
     assert response.status_code == 401
-    
+
     # Restore override for other tests
     from tests.conftest import override_get_current_user
     app.dependency_overrides[get_current_user] = override_get_current_user

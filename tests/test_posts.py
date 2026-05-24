@@ -9,11 +9,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
 from app.core.database import Base, get_db
 from app.core.dependencies import get_current_user
+from app.main import app
 from app.models.user import User
-from app.models.post import Post, Comment, PostLike, Draft
 
 # 1. Setup in-memory test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -65,7 +64,7 @@ client = TestClient(app)
 def setup_db():
     """Build database schema before every test and tear it down after."""
     Base.metadata.create_all(bind=engine)
-    
+
     # Pre-populate a fresh User record in DB matching current user ID
     db = TestingSessionLocal()
     u = User(
@@ -79,7 +78,7 @@ def setup_db():
     db.merge(u)
     db.commit()
     db.close()
-    
+
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -97,7 +96,7 @@ def test_create_post():
     }
     response = client.post("/api/v1/posts/", json=payload)
     assert response.status_code == 201
-    
+
     data = response.json()
     assert data["content"] == payload["content"]
     assert data["author_id"] == mock_user.id

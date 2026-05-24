@@ -1,9 +1,12 @@
-import uuid
 import enum
+import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Enum, Index
+
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, String
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+
 
 class NotificationType(str, enum.Enum):
     FOLLOW = "FOLLOW"

@@ -6,27 +6,30 @@ API Endpoints for creating, editing, deleting, liking, bookmarking, and commenti
 import os
 import shutil
 import uuid
-
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, BackgroundTasks, UploadFile, File
-from sqlalchemy.orm import Session
 from typing import List, Optional
 
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile, status
+from sqlalchemy.orm import Session
+
+from app.core.cache import cache_service
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.core.cache import cache_service
 from app.models.user import User
 from app.schemas.post import (
-    PostCreate, PostUpdate, PostResponse, PostBriefResponse,
-    CommentCreate, CommentResponse,
-    DraftCreate, DraftUpdate, DraftResponse,
-    SavedPostResponse, PostEditHistoryResponse,
-    AIRefineRequest, AIRefineResponse
+    AIRefineRequest,
+    AIRefineResponse,
+    CommentCreate,
+    CommentResponse,
+    DraftCreate,
+    DraftResponse,
+    PostBriefResponse,
+    PostCreate,
+    PostResponse,
+    PostUpdate,
 )
-from app.services.post_service import PostService
 from app.services.ai_service import AIService
 from app.services.background_tasks import BackgroundTasksService
-
-
+from app.services.post_service import PostService
 
 router = APIRouter()
 
@@ -86,7 +89,7 @@ def create_post(
     """
     service = PostService(db)
     new_post = service.create_post(post, current_user.id, x_tenant_id, post.media)
-    
+
     # Trigger background tasks
     background_tasks.add_task(BackgroundTasksService.fanout_post_to_followers, new_post.id, current_user.id, x_tenant_id, db)
     background_tasks.add_task(BackgroundTasksService.process_media_attachments, new_post.id, x_tenant_id, db)
@@ -118,7 +121,7 @@ def get_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
-    
+
     # Save to cache for 1 minute
     post_data = PostResponse.model_validate(post).model_dump()
     cache_service.set(cache_key, post_data, expire_seconds=60)
@@ -143,7 +146,7 @@ def update_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not update post (unauthorized or not found)"
         )
-    
+
     # Clear cache
     cache_service.delete(f"post:{x_tenant_id}:{post_id}")
     _invalidate_feed_cache(x_tenant_id, current_user.id)
@@ -196,7 +199,7 @@ def add_comment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
-    
+
     # Invalidate cached post detail and feeds
     cache_service.delete(f"post:{x_tenant_id}:{post_id}")
     _invalidate_feed_cache(x_tenant_id)
@@ -220,7 +223,7 @@ def remove_comment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not delete comment (unauthorized or not found)"
         )
-    
+
     _invalidate_feed_cache(x_tenant_id)
     return {"message": "Comment removed successfully"}
 
@@ -241,11 +244,11 @@ def like_post(
     """
     service = PostService(db)
     liked, message = service.toggle_like(post_id, current_user.id, x_tenant_id)
-    
+
     # Invalidate cache
     cache_service.delete(f"post:{x_tenant_id}:{post_id}")
     _invalidate_feed_cache(x_tenant_id)
-    
+
     return {"liked": liked, "message": message}
 
 
@@ -261,11 +264,11 @@ def repost_post(
     """
     service = PostService(db)
     reposted, message = service.toggle_repost(post_id, current_user.id, x_tenant_id)
-    
+
     # Invalidate cache
     cache_service.delete(f"post:{x_tenant_id}:{post_id}")
     _invalidate_feed_cache(x_tenant_id, current_user.id)
-    
+
     return {"reposted": reposted, "message": message}
 
 

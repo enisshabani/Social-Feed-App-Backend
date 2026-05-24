@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, status, Query, BackgroundTasks
-from sqlalchemy.orm import Session
 from typing import List
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
-
-from app.modules.follows.schemas import FollowResponse, FollowCountResponse, IsFollowingResponse
+from app.modules.follows.schemas import FollowCountResponse, FollowResponse, IsFollowingResponse
 from app.modules.follows.service import FollowService
 from app.workers.notification_worker import process_follow_notification
 
@@ -18,9 +18,9 @@ def get_follow_service(db: Session = Depends(get_db), current_user: User = Depen
     return FollowService(db=db, tenant_id=current_user.tenant_id)
 
 @router.post(
-    "/{user_id}", 
-    response_model=FollowResponse, 
-    status_code=status.HTTP_201_CREATED, 
+    "/{user_id}",
+    response_model=FollowResponse,
+    status_code=status.HTTP_201_CREATED,
     summary="Follow a user",
     description="Follow another user by their user_id. Creates a follow relationship in the database.",
     responses={
@@ -32,25 +32,25 @@ def get_follow_service(db: Session = Depends(get_db), current_user: User = Depen
     }
 )
 def follow_user(
-    user_id: int, 
+    user_id: int,
     background_tasks: BackgroundTasks,
     service: FollowService = Depends(get_follow_service),
     current_user: User = Depends(get_current_user)
 ):
     follow = service.follow_user(follower_id=current_user.id, followee_id=user_id)
-    
+
     background_tasks.add_task(
         process_follow_notification,
         actor_id=current_user.id,
         recipient_id=user_id,
         tenant_id=current_user.tenant_id
     )
-    
+
     return follow
 
 @router.delete(
-    "/{user_id}", 
-    status_code=status.HTTP_204_NO_CONTENT, 
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Unfollow a user",
     description="Unfollow another user by their user_id. Deletes the follow relationship.",
     responses={
@@ -61,15 +61,15 @@ def follow_user(
     }
 )
 def unfollow_user(
-    user_id: int, 
+    user_id: int,
     service: FollowService = Depends(get_follow_service),
     current_user: User = Depends(get_current_user)
 ):
     service.unfollow_user(follower_id=current_user.id, followee_id=user_id)
 
 @router.get(
-    "/followers/{user_id}", 
-    response_model=List[FollowResponse], 
+    "/followers/{user_id}",
+    response_model=List[FollowResponse],
     summary="Get followers of a user",
     description="Retrieve a paginated list of users who follow the specified user.",
     responses={
@@ -86,8 +86,8 @@ def get_followers(
     return service.get_followers(user_id=user_id, skip=skip, limit=limit)
 
 @router.get(
-    "/following/{user_id}", 
-    response_model=List[FollowResponse], 
+    "/following/{user_id}",
+    response_model=List[FollowResponse],
     summary="Get following list of a user",
     description="Retrieve a paginated list of users the specified user is following.",
     responses={
@@ -122,8 +122,8 @@ def get_pending_follow_backs(
     return service.get_pending_follow_backs(user_id=current_user.id, skip=skip, limit=limit)
 
 @router.get(
-    "/counts/{user_id}", 
-    response_model=FollowCountResponse, 
+    "/counts/{user_id}",
+    response_model=FollowCountResponse,
     summary="Get follower/following counts",
     description="Get the total number of followers and following for a specific user.",
     responses={
@@ -138,8 +138,8 @@ def get_follow_counts(
     return service.get_follow_counts(user_id=user_id)
 
 @router.get(
-    "/check/{user_id}", 
-    response_model=IsFollowingResponse, 
+    "/check/{user_id}",
+    response_model=IsFollowingResponse,
     summary="Check if following a user",
     description="Check if the current authenticated user is following the specified user.",
     responses={

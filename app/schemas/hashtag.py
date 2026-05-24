@@ -3,9 +3,10 @@ KaPak - Hashtag Schemas
 Pydantic models for data validation and API payloads.
 """
 
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class HashtagCreate(BaseModel):

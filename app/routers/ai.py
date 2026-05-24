@@ -5,21 +5,22 @@ All operations are async via Celery tasks. Falls back to marking task as failed 
 """
 
 import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.tasks.ai_tasks import (
-    suggest_hashtags_task,
     analyze_sentiment_task,
+    suggest_hashtags_task,
 )
-from app.models.user import User
 from app.models.ai_task import AiTask
+from app.models.user import User
 from app.schemas.ai_task import (
     AiTaskResponse,
-    SuggestHashtagsRequest,
     AnalyzeSentimentRequest,
+    SuggestHashtagsRequest,
 )
 
 logger = logging.getLogger(__name__)
