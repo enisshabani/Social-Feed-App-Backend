@@ -4,6 +4,7 @@ Loads environment variables and provides app-wide settings.
 """
 
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from functools import lru_cache
 
 
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
 
     # OpenAI / Google AI Studio (OpenAI-compatible endpoint)
     OPENAI_API_KEY: str = ""
-    GOOGLE_API_KEY: str = ""
+    GOOGLE_API_KEY: str = "AIzaSyBd5pT8WM6B1GzKFW2KE2rkmgq-30dCuG4"
     GOOGLE_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
     # Celery (background task queue)
@@ -50,6 +51,17 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug_mode(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "production", "prod"}:
+                return False
+            if normalized in {"debug", "development", "dev"}:
+                return True
+        return value
 
     class Config:
         env_file = ".env"
