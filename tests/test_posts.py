@@ -221,3 +221,16 @@ def test_get_feeds():
     tag_feed = client.get("/api/v1/feeds/tag/cooltag")
     assert tag_feed.status_code == 200
     assert len(tag_feed.json()["items"]) == 1
+
+
+def test_home_feed_includes_root_posts_and_excludes_replies():
+    root_res = client.post("/api/v1/posts/", json={"content": "Root feed post", "visibility": "public"})
+    root_id = root_res.json()["id"]
+    client.post(f"/api/v1/posts/{root_id}/comments", json={"content": "Reply should stay out of home feed"})
+
+    home_feed = client.get("/api/v1/feeds/home")
+
+    assert home_feed.status_code == 200
+    items = home_feed.json()["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == root_id

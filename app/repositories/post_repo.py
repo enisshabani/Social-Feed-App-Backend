@@ -61,7 +61,7 @@ class PostRepository:
         """List root level posts (not replies) ordered by creation date."""
         return self.db.query(Post).filter(
             Post.tenant_id == tenant_id,
-            Post.reply_to_post_id is None
+            Post.reply_to_post_id.is_(None)
         ).order_by(desc(Post.created_at)).offset(skip).limit(limit).all()
 
     def list_user_posts(self, user_id: int, tenant_id: str = "default", skip: int = 0, limit: int = 20) -> List[Post]:
