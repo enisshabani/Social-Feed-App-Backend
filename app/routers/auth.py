@@ -25,10 +25,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.email import create_super_simple_token, send_reset_password_email
 from app.core.middleware import normalize_tenant_id
 from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_token
 from app.models.user import User
 from app.schemas.user import (
+    EmailVerificationRequest,
     ForgotPasswordRequest,
     LoginResponse,
     RefreshTokenRequest,
@@ -166,7 +168,7 @@ def register(
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
         tenant_id=tenant_id,
-        is_verified=True,
+        is_verified=False,
     )
     db.add(new_user)
     try:
@@ -180,6 +182,47 @@ def register(
     db.refresh(new_user)
 
     return new_user
+
+
+@router.post("/verify-email", response_model=UserResponse)
+def verify_email(payload: EmailVerificationRequest, db: Session = Depends(get_db)):
+    """
+    Mark a local email/password account as verified after Firebase confirms the email.
+    """
+    try:
+        tenant_id = normalize_tenant_id(payload.tenant_id)
+        idinfo = id_token.verify_firebase_token(
+            payload.token,
+            requests.Request(),
+            audience=FIREBASE_PROJECT_ID,
+            clock_skew_in_seconds=300
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid verification token",
+        )
+
+    email = idinfo.get("email", "")
+    if not email or not idinfo.get("email_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is not verified yet",
+        )
+
+    user = _tenant_user_query(db, tenant_id).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found",
+        )
+
+    if not user.is_verified:
+        user.is_verified = True
+        db.commit()
+        db.refresh(user)
+
+    return user
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -244,6 +287,12 @@ def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated",
+        )
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email before logging in.",
         )
 
     # Check 2FA
@@ -777,17 +826,18 @@ async def forgot_password(
 ):
     """
     Kërkesë për rishkrim të fjalëkalimit.
-    Gjeneron një kod 6-shifror dhe e tregon në alert.
+    Gjeneron një link unik dhe e dërgon në email.
     """
     user = _global_user_by_email(db, request.email)
 
     if not user:
-        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit do të dërgohet."}
+        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një link për rishkrimin e fjalëkalimit do të dërgohet."}
 
-    reset_code = ''.join(random.choices(string.digits, k=6))
-    RESET_TOKENS[reset_code] = user.email
+    reset_token = create_super_simple_token()
+    RESET_TOKENS[reset_token] = user.email
+    await send_reset_password_email(user.email, reset_token)
 
-    return {"message": "Kodi u gjenerua.", "code": reset_code}
+    return {"message": "Nëse ky email ekziston, linku për rishkrimin e fjalëkalimit është dërguar."}
 
 @router.post("/reset-password")
 async def reset_password(
@@ -796,7 +846,7 @@ async def reset_password(
 ):
     email = RESET_TOKENS.get(request.token)
     if not email:
-        raise HTTPException(status_code=400, detail="Kodi është i pasaktë ose ka skaduar.")
+        raise HTTPException(status_code=400, detail="Linku është i pasaktë ose ka skaduar.")
 
     user = _user_query(db).filter(User.email == email).first()
     if not user:
