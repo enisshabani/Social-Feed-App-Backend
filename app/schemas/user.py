@@ -54,6 +54,11 @@ class RefreshTokenRequest(BaseModel):
     """Schema for requesting new access token via refresh token."""
     refresh_token: str
 
+class EmailVerificationRequest(BaseModel):
+    """Schema for confirming Firebase email verification."""
+    token: str
+    tenant_id: Optional[str] = Field("default", max_length=50)
+
 # ─── Response Schemas ───────────────────────────────────────
 
 class UserResponse(BaseModel):

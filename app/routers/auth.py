@@ -29,6 +29,7 @@ from app.core.middleware import normalize_tenant_id
 from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_token
 from app.models.user import User
 from app.schemas.user import (
+    EmailVerificationRequest,
     ForgotPasswordRequest,
     LoginResponse,
     RefreshTokenRequest,
@@ -166,7 +167,7 @@ def register(
         hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
         tenant_id=tenant_id,
-        is_verified=True,
+        is_verified=False,
     )
     db.add(new_user)
     try:
@@ -180,6 +181,47 @@ def register(
     db.refresh(new_user)
 
     return new_user
+
+
+@router.post("/verify-email", response_model=UserResponse)
+def verify_email(payload: EmailVerificationRequest, db: Session = Depends(get_db)):
+    """
+    Mark a local email/password account as verified after Firebase confirms the email.
+    """
+    try:
+        tenant_id = normalize_tenant_id(payload.tenant_id)
+        idinfo = id_token.verify_firebase_token(
+            payload.token,
+            requests.Request(),
+            audience=FIREBASE_PROJECT_ID,
+            clock_skew_in_seconds=300
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid verification token",
+        )
+
+    email = idinfo.get("email", "")
+    if not email or not idinfo.get("email_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is not verified yet",
+        )
+
+    user = _tenant_user_query(db, tenant_id).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found",
+        )
+
+    if not user.is_verified:
+        user.is_verified = True
+        db.commit()
+        db.refresh(user)
+
+    return user
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -244,6 +286,12 @@ def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated",
+        )
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email before logging in.",
         )
 
     # Check 2FA
