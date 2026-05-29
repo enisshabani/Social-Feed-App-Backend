@@ -32,14 +32,14 @@ def _send_email(to_email: str, subject: str, html_content: str, category: str):
 
 async def send_reset_password_email(email_to: str, reset_token: str):
     """
-    Dërgon emailin reale me token-in për reset fjalëkalimi duke përdorur Mailtrap.
+    Dërgon emailin reale me linkun për reset fjalëkalimi duke përdorur Mailtrap.
     """
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
     html_content = f"""
     <h2>Përshëndetje!</h2>
     <p>Keni kërkuar rikthimin e fjalëkalimit për llogarinë tuaj në platformën <b>KaPak</b>.</p>
-    <p>Kilkoni linkun më poshtë për ta krijuar fjalëkalimin e ri:</p>
+    <p>Klikoni linkun më poshtë për ta krijuar fjalëkalimin e ri:</p>
     <a href="{reset_url}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Ndërro Fjalëkalimin</a>
     <br><br>
     <p>Nëse nuk keni kërkuar një fjalëkalim të ri, thjesht injorojeni këtë email.</p>

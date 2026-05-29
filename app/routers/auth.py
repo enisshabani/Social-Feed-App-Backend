@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.email import create_super_simple_token, send_reset_password_email
 from app.core.middleware import normalize_tenant_id
 from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_token
 from app.models.user import User
@@ -825,17 +826,18 @@ async def forgot_password(
 ):
     """
     Kërkesë për rishkrim të fjalëkalimit.
-    Gjeneron një kod 6-shifror dhe e tregon në alert.
+    Gjeneron një link unik dhe e dërgon në email.
     """
     user = _global_user_by_email(db, request.email)
 
     if not user:
-        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një kod për rishkrimin e fjalëkalimit do të dërgohet."}
+        return {"message": "Kërkesa u regjistrua. Nëse ky email ekziston, një link për rishkrimin e fjalëkalimit do të dërgohet."}
 
-    reset_code = ''.join(random.choices(string.digits, k=6))
-    RESET_TOKENS[reset_code] = user.email
+    reset_token = create_super_simple_token()
+    RESET_TOKENS[reset_token] = user.email
+    await send_reset_password_email(user.email, reset_token)
 
-    return {"message": "Kodi u gjenerua.", "code": reset_code}
+    return {"message": "Nëse ky email ekziston, linku për rishkrimin e fjalëkalimit është dërguar."}
 
 @router.post("/reset-password")
 async def reset_password(
@@ -844,7 +846,7 @@ async def reset_password(
 ):
     email = RESET_TOKENS.get(request.token)
     if not email:
-        raise HTTPException(status_code=400, detail="Kodi është i pasaktë ose ka skaduar.")
+        raise HTTPException(status_code=400, detail="Linku është i pasaktë ose ka skaduar.")
 
     user = _user_query(db).filter(User.email == email).first()
     if not user:
