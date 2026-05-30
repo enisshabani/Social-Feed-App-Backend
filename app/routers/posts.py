@@ -39,6 +39,7 @@ from app.schemas.post import (
 from app.services.ai_service import AIService
 from app.services.background_tasks import BackgroundTasksService
 from app.services.post_service import PostService
+from app.workers.notification_worker import NotificationWorker
 
 router = APIRouter()
 
@@ -159,7 +160,14 @@ def create_post(
     # Trigger background tasks
     background_tasks.add_task(BackgroundTasksService.fanout_post_to_followers, new_post.id, current_user.id, x_tenant_id, db)
     background_tasks.add_task(BackgroundTasksService.process_media_attachments, new_post.id, x_tenant_id, db)
-    background_tasks.add_task(BackgroundTasksService.process_mentions_and_notifications, new_post.id, post.content, x_tenant_id, db)
+    background_tasks.add_task(
+        BackgroundTasksService.process_mentions_and_notifications,
+        new_post.id,
+        current_user.id,
+        post.content,
+        x_tenant_id,
+        db,
+    )
 
     _invalidate_feed_cache(x_tenant_id, current_user.id)
     return new_post
@@ -341,6 +349,11 @@ def like_post(
     allowed_reactions = {"star", "laugh", "love", "wow", "sad", "angry"}
     reaction_type = reaction.reaction_type if reaction.reaction_type in allowed_reactions else "star"
     liked, message, selected_reaction = service.toggle_like(post_id, current_user.id, x_tenant_id, reaction_type)
+
+    if liked:
+        post = service.get_post(post_id, x_tenant_id)
+        if post:
+            NotificationWorker(db).create_like_notification(current_user.id, post.author_id, post.id, x_tenant_id)
 
     # Invalidate cache
     cache_service.delete(f"post:{x_tenant_id}:{post_id}")

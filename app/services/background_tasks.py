@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.post import Media, TimelineItem
 from app.models.user import User
+from app.workers.notification_worker import NotificationWorker
 
 logger = logging.getLogger(__name__)
 
@@ -86,29 +87,29 @@ class BackgroundTasksService:
             db.rollback()
 
     @staticmethod
-    def process_mentions_and_notifications(post_id: int, content: str, tenant_id: str, db: Session):
+    def process_mentions_and_notifications(post_id: int, author_id: int, content: str, tenant_id: str, db: Session):
         """
-        Scans post text for @mentions and simulates sending pushes or emails.
+        Scans post text for @mentions and creates notifications for mentioned users.
         """
         import re
         try:
-            mentions = re.findall(r"@(\w+)", content)
+            mentions = set(re.findall(r"@(\w+)", content))
             if not mentions:
                 return
 
             logger.info(f"Found mentions in post {post_id}: {mentions}")
+            worker = NotificationWorker(db)
             for username in mentions:
                 # Find mentioned user
                 target_user = db.query(User).filter(
                     User.username == username,
+                    User.tenant_id == tenant_id,
                     User.is_active
                 ).first()
 
                 if target_user:
-                    # In a full system, you would insert notification entries:
-                    # notification = Notification(user_id=target_user.id, type="mention", post_id=post_id)
-                    # db.add(notification)
-                    logger.info(f"Simulating push notification dispatch to user: {username}")
+                    worker.create_mention_notification(author_id, target_user.id, post_id, tenant_id)
+                    logger.info(f"Created mention notification for user: {username}")
 
         except Exception as e:
             logger.error(f"Error handling post mentions/notifications: {e}")

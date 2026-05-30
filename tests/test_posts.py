@@ -5,6 +5,10 @@ Verifies all posts, comments, likes, reposts, bookmarks, drafts, and AI refineme
 
 import pytest
 
+from app.models.post import Post
+from app.models.user import User
+from app.modules.notifications.models import Notification, NotificationType
+
 
 # ==========================================
 # TEST CASES
@@ -58,6 +62,65 @@ def test_like_post_toggle(test_client):
 
     detail_res = test_client.get(f"/api/v1/posts/{post_id}")
     assert detail_res.json()["like_count"] == 0
+
+
+def test_like_post_creates_notification_for_post_author(test_client, db_session):
+    db_session.add(
+        User(
+            id=2,
+            username="postauthor",
+            email="postauthor@example.com",
+            hashed_password="hashed_password",
+            is_active=True,
+            role="user",
+            tenant_id="default",
+        )
+    )
+    post = Post(content="A post by someone else", visibility="public", author_id=2, tenant_id="default")
+    db_session.add(post)
+    db_session.commit()
+    db_session.refresh(post)
+
+    response = test_client.post(f"/api/v1/posts/{post.id}/like")
+
+    assert response.status_code == 200
+    notification = db_session.query(Notification).filter(
+        Notification.type == NotificationType.LIKE,
+        Notification.actor_id == 1,
+        Notification.recipient_id == 2,
+        Notification.entity_id == str(post.id),
+    ).first()
+    assert notification is not None
+
+
+def test_create_post_with_mention_creates_notification(test_client, db_session):
+    db_session.add(
+        User(
+            id=2,
+            username="mentioneduser",
+            email="mentioneduser@example.com",
+            hashed_password="hashed_password",
+            is_active=True,
+            role="user",
+            tenant_id="default",
+        )
+    )
+    db_session.commit()
+
+    response = test_client.post(
+        "/api/v1/posts/",
+        json={"content": "Hello @mentioneduser, check this out", "visibility": "public"},
+    )
+
+    assert response.status_code == 201
+    post_id = response.json()["id"]
+    notification = db_session.query(Notification).filter(
+        Notification.type == NotificationType.MENTION,
+        Notification.actor_id == 1,
+        Notification.recipient_id == 2,
+        Notification.entity_id == str(post_id),
+    ).first()
+    assert notification is not None
 
 
 def test_post_comment(test_client):
