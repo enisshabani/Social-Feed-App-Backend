@@ -12,7 +12,7 @@ try:
     from app.core.tasks.ai_tasks import analyze_sentiment_task, suggest_hashtags_task
 
     def _mock_delay(**kwargs):
-        pass
+        raise RuntimeError("Broker unreachable")
 
     suggest_hashtags_task.delay = _mock_delay
     analyze_sentiment_task.delay = _mock_delay

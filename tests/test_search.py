@@ -1,10 +1,14 @@
 """
 KaPak - Search Tests
-Tests for full-text search across posts, users, and hashtags.
+API tests for full-text search across posts, users, and hashtags.
 """
 
 from app.models.search_history import SearchHistory
 
+
+# ==========================================
+# API: GET /search/posts
+# ==========================================
 
 def test_search_posts_by_content(test_client):
     test_client.post("/api/v1/posts/", json={
@@ -113,6 +117,15 @@ def test_search_posts_comment_only_match(test_client):
     assert with_comments.json()["total"] == 1
 
 
+def test_search_requires_query(test_client):
+    res = test_client.get("/api/v1/search/posts")
+    assert res.status_code == 422
+
+
+# ==========================================
+# API: GET /search/users
+# ==========================================
+
 def test_search_users(test_client):
     res = test_client.get("/api/v1/search/users?q=test")
     assert res.status_code == 200
@@ -138,6 +151,33 @@ def test_search_users_logs_history(test_client, db_session):
     ).first()
     assert entry is not None
 
+
+def test_search_users_pagination(test_client, db_session):
+    from app.models.user import User
+
+    db_session.add_all([
+        User(id=2, username="testuser2", email="test2@example.com", hashed_password="h", is_active=True, role="user", tenant_id="default"),
+        User(id=3, username="testuser3", email="test3@example.com", hashed_password="h", is_active=True, role="user", tenant_id="default"),
+    ])
+    db_session.commit()
+
+    r1 = test_client.get("/api/v1/search/users?q=testuser&offset=0&limit=2")
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["total"] == 3
+    assert len(d1["items"]) == 2
+    assert d1["offset"] == 0
+
+    r2 = test_client.get("/api/v1/search/users?q=testuser&offset=2&limit=2")
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert len(d2["items"]) == 1
+    assert d2["offset"] == 2
+
+
+# ==========================================
+# API: GET /search/hashtags
+# ==========================================
 
 def test_search_hashtags(test_client):
     test_client.post("/api/v1/posts/", json={
@@ -183,6 +223,38 @@ def test_search_hashtags_logs_history(test_client, db_session):
     assert entry is not None
 
 
-def test_search_requires_query(test_client):
-    res = test_client.get("/api/v1/search/posts")
-    assert res.status_code == 422
+def test_search_hashtags_pagination(test_client):
+    for name in ["alpha", "beta", "gamma"]:
+        test_client.post("/api/v1/posts/", json={
+            "content": f"Tag #paghash{name}", "visibility": "public",
+        })
+
+    r1 = test_client.get("/api/v1/search/hashtags?q=paghash&offset=0&limit=2")
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["total"] == 3
+    assert len(d1["items"]) == 2
+
+    r2 = test_client.get("/api/v1/search/hashtags?q=paghash&offset=2&limit=2")
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert len(d2["items"]) == 1
+    assert d2["offset"] == 2
+
+
+def test_search_hashtags_sorted_by_mention_count(test_client):
+    for _ in range(3):
+        test_client.post("/api/v1/posts/", json={
+            "content": "Popular #sorttest", "visibility": "public",
+        })
+    test_client.post("/api/v1/posts/", json={
+        "content": "Rare #sortother", "visibility": "public",
+    })
+
+    res = test_client.get("/api/v1/search/hashtags?q=sort")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 2
+    assert data["items"][0]["name"] == "sorttest"
+    assert data["items"][1]["name"] == "sortother"
+    assert data["items"][0]["mention_count"] > data["items"][1]["mention_count"]
