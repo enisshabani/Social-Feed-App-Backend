@@ -27,6 +27,7 @@ build/
 *.log
 server_out.log
 server_err.log
+uploads/
 
 # Testing
 .pytest_cache/

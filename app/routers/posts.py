@@ -6,11 +6,15 @@ API Endpoints for creating, editing, deleting, liking, bookmarking, and commenti
 import os
 import shutil
 import uuid
+import base64
+import cloudinary
+import cloudinary.uploader
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.cache import cache_service
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -67,6 +71,39 @@ def upload_post_media(
         )
 
     media_type = "video" if file.content_type.startswith("video/") else "image"
+
+    settings = get_settings()
+
+    if settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY and settings.CLOUDINARY_API_SECRET:
+        cloudinary.config(
+            cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+            api_key=settings.CLOUDINARY_API_KEY,
+            api_secret=settings.CLOUDINARY_API_SECRET,
+            secure=True
+        )
+        try:
+            result = cloudinary.uploader.upload(
+                file.file, 
+                resource_type="video" if media_type == "video" else "image"
+            )
+            return {
+                "url": result.get("secure_url"),
+                "media_type": media_type,
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error uploading to Cloudinary: {str(e)}"
+            )
+
+    if media_type == "image":
+        content = file.file.read()
+        encoded = base64.b64encode(content).decode("ascii")
+        return {
+            "url": f"data:{file.content_type};base64,{encoded}",
+            "media_type": media_type,
+        }
+
     extension = os.path.splitext(file.filename or "")[1] or (".mp4" if media_type == "video" else ".jpg")
     filename = f"{current_user.id}_{uuid.uuid4().hex[:10]}{extension}"
     file_path = os.path.join(POST_UPLOAD_DIR, filename)
