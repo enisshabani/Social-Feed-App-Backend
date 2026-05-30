@@ -7,11 +7,13 @@ import os
 import shutil
 import uuid
 import base64
+from io import BytesIO
 import cloudinary
 import cloudinary.uploader
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile, status
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -42,6 +44,32 @@ router = APIRouter()
 
 POST_UPLOAD_DIR = os.path.join("uploads", "posts")
 os.makedirs(POST_UPLOAD_DIR, exist_ok=True)
+MAX_INLINE_IMAGE_SIZE = (1600, 1600)
+
+
+def _image_upload_to_data_url(file: UploadFile) -> str:
+    content = file.file.read()
+    try:
+        image = Image.open(BytesIO(content))
+        image = ImageOps.exif_transpose(image)
+        image.thumbnail(MAX_INLINE_IMAGE_SIZE)
+
+        has_alpha = image.mode in ("RGBA", "LA") or (
+            image.mode == "P" and "transparency" in image.info
+        )
+        output = BytesIO()
+        if has_alpha:
+            image.save(output, format="PNG", optimize=True)
+            mime_type = "image/png"
+        else:
+            image = image.convert("RGB")
+            image.save(output, format="JPEG", quality=86, optimize=True)
+            mime_type = "image/jpeg"
+        encoded = base64.b64encode(output.getvalue()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+    except Exception:
+        encoded = base64.b64encode(content).decode("ascii")
+        return f"data:{file.content_type};base64,{encoded}"
 
 # Helper to invalidate cached timeline and explore feeds when updates happen
 def _invalidate_feed_cache(tenant_id: str, user_id: Optional[int] = None):
@@ -97,10 +125,8 @@ def upload_post_media(
             )
 
     if media_type == "image":
-        content = file.file.read()
-        encoded = base64.b64encode(content).decode("ascii")
         return {
-            "url": f"data:{file.content_type};base64,{encoded}",
+            "url": _image_upload_to_data_url(file),
             "media_type": media_type,
         }
 
