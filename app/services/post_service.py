@@ -23,6 +23,8 @@ class PostService:
     # Regex patterns for parsing content
     HASHTAG_REGEX = re.compile(r"#(\w+)")
     MENTION_REGEX = re.compile(r"@(\w+)")
+    URL_REGEX = re.compile(r'(https?://[^\s<]+[^<.,:;"\')\]\s])')
+    IMAGE_EXT_REGEX = re.compile(r'\.(?:png|jpg|jpeg|gif|webp|jfif|bmp|svg)(?:[?#].*)?$', re.IGNORECASE)
 
     # ==========================================
     # CORE POST BUSINESS LOGIC
@@ -246,10 +248,32 @@ class PostService:
         return list(set(self.HASHTAG_REGEX.findall(text)))
 
     def _enrich_content_to_html(self, text: str) -> str:
-        """Convert hashtags and mentions to interactive HTML spans."""
-        enriched = text
+        """Convert hashtags, mentions, and URLs to interactive HTML spans/images."""
+        import html
+        if not text:
+            return ""
+
+        # Escape HTML first for safety
+        enriched = html.escape(text)
+
+        # Process URLs: turn image URLs into <img> tags, and others into <a> tags
+        def url_replacer(match):
+            url = match.group(1)
+            # Check if it ends with an image extension
+            if self.IMAGE_EXT_REGEX.search(url):
+                return f'<img src="{url}" class="rounded-lg max-h-96 object-contain my-2 block w-full bg-black/5" alt="Image" loading="lazy" />'
+            else:
+                return f'<a href="{url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">{url}</a>'
+                
+        enriched = self.URL_REGEX.sub(url_replacer, enriched)
+
         # Convert hashtags: #hello -> <span class="hashtag">#hello</span>
+        # Because we escaped HTML, the # stays #.
         enriched = self.HASHTAG_REGEX.sub(r'<span class="hashtag">#\1</span>', enriched)
         # Convert mentions: @user -> <span class="mention">@user</span>
         enriched = self.MENTION_REGEX.sub(r'<span class="mention">@\1</span>', enriched)
+        
+        # Convert newlines to <br/>
+        enriched = enriched.replace('\n', '<br/>')
+
         return enriched
