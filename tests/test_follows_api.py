@@ -18,15 +18,15 @@ def test_follow_endpoint_creates_relationship(test_client, db_session, monkeypat
     data = response.json()
     assert data["follower_id"] == 1
     assert data["followee_id"] == 2
-    assert created_notifications == [(1, 2, "tenant-1")]
+    assert created_notifications == [(1, 2, "default")]
 
     follow = db_session.query(Follow).filter_by(
         follower_id=1,
         followee_id=2,
-        tenant_id="tenant-1",
+        tenant_id="default",
     ).one()
     assert follow.id == data["id"]
-    assert follow.tenant_id == "tenant-1"
+    assert follow.tenant_id == "default"
 
 
 def test_follow_endpoint_rejects_self_follow(test_client, db_session):
@@ -57,17 +57,17 @@ def test_unfollow_endpoint_deletes_relationship(test_client, db_session, monkeyp
     assert db_session.query(Follow).filter_by(
         follower_id=1,
         followee_id=2,
-        tenant_id="tenant-1",
+        tenant_id="default",
     ).first() is None
 
 
 def test_follow_read_endpoints_return_lists_counts_and_status(test_client, db_session):
     db_session.add_all(
         [
-            Follow(follower_id=1, followee_id=2, tenant_id="tenant-1"),
-            Follow(follower_id=3, followee_id=2, tenant_id="tenant-1"),
-            Follow(follower_id=1, followee_id=4, tenant_id="tenant-1"),
-            Follow(follower_id=4, followee_id=1, tenant_id="tenant-1"),
+            Follow(follower_id=1, followee_id=2, tenant_id="default"),
+            Follow(follower_id=3, followee_id=2, tenant_id="default"),
+            Follow(follower_id=1, followee_id=4, tenant_id="default"),
+            Follow(follower_id=4, followee_id=1, tenant_id="default"),
             Follow(follower_id=9, followee_id=2, tenant_id="tenant-2"),
         ]
     )

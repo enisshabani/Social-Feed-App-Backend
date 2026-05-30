@@ -58,30 +58,32 @@ def get_trending_hashtags(
 
     results: list[HashtagTrendingResponse] = []
     for hashtag, _ in rows:
-        history_rows = (
-            db.query(
-                func.date_trunc("day", ContentHashtag.created_at).label("day"),
-                func.count(ContentHashtag.id).label("uses"),
-                func.count(func.distinct(Post.author_id)).label("accounts"),
+        try:
+            history_rows = (
+                db.query(
+                    func.date_trunc("day", ContentHashtag.created_at).label("day"),
+                    func.count(ContentHashtag.id).label("uses"),
+                    func.count(func.distinct(Post.author_id)).label("accounts"),
+                )
+                .join(Post, Post.id == ContentHashtag.post_id)
+                .filter(
+                    ContentHashtag.hashtag_id == hashtag.id,
+                    ContentHashtag.created_at >= cutoff,
+                )
+                .group_by(func.date_trunc("day", ContentHashtag.created_at))
+                .order_by(func.date_trunc("day", ContentHashtag.created_at))
+                .all()
             )
-            .join(Post, Post.id == ContentHashtag.post_id)
-            .filter(
-                ContentHashtag.hashtag_id == hashtag.id,
-                ContentHashtag.created_at >= cutoff,
-            )
-            .group_by(func.date_trunc("day", ContentHashtag.created_at))
-            .order_by(func.date_trunc("day", ContentHashtag.created_at))
-            .all()
-        )
-
-        history = [
-            HashtagHistoryItem(
-                day=str(h.day),
-                uses=h.uses,
-                accounts=h.accounts,
-            )
-            for h in history_rows
-        ]
+            history = [
+                HashtagHistoryItem(
+                    day=str(h.day),
+                    uses=h.uses,
+                    accounts=h.accounts,
+                )
+                for h in history_rows
+            ]
+        except Exception:
+            history = []
 
         results.append(
             HashtagTrendingResponse(

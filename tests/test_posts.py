@@ -5,24 +5,6 @@ Verifies all posts, comments, likes, reposts, bookmarks, drafts, and AI refineme
 
 import pytest
 
-from app.models.user import User
-
-
-@pytest.fixture(autouse=True)
-def seed_user(db_session):
-    db_session.merge(
-        User(
-            id=1,
-            username="testuser",
-            email="testuser@example.com",
-            hashed_password="hashed_password",
-            is_active=True,
-            role="user",
-        )
-    )
-    db_session.commit()
-
-
 
 # ==========================================
 # TEST CASES

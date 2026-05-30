@@ -84,27 +84,28 @@ def search_posts(
 
     base = db.query(Post).filter(Post.tenant_id == tenant)
 
-    try:
-        ts_query = func.plainto_tsquery("english", q)
-        ts_match = func.to_tsvector("english", Post.content).op("@@")(ts_query)
-        content_match = ts_match
-    except (sa_exc.OperationalError, sa_exc.ProgrammingError):
-        content_match = Post.content.ilike(ilike_q)
-
     author_match = or_(
         User.username.ilike(ilike_q),
         User.display_name.ilike(ilike_q),
     )
 
-    query_filter = or_(content_match, author_match)
-
-    # Phase 1a: direct post matches
-    direct_query = (
-        base.join(User, Post.author_id == User.id)
-        .filter(query_filter)
-    )
-    direct_post_ids = {row.id for row in direct_query.with_entities(Post.id).all()}
-    direct_query.count()
+    try:
+        ts_query = func.plainto_tsquery("english", q)
+        ts_match = func.to_tsvector("english", Post.content).op("@@")(ts_query)
+        query_filter = or_(ts_match, author_match)
+        direct_query = (
+            base.join(User, Post.author_id == User.id)
+            .filter(query_filter)
+        )
+        direct_post_ids = {row.id for row in direct_query.with_entities(Post.id).all()}
+    except (sa_exc.OperationalError, sa_exc.ProgrammingError):
+        content_match = Post.content.ilike(ilike_q)
+        query_filter = or_(content_match, author_match)
+        direct_query = (
+            base.join(User, Post.author_id == User.id)
+            .filter(query_filter)
+        )
+        direct_post_ids = {row.id for row in direct_query.with_entities(Post.id).all()}
 
     # Phase 1b: comment matches (only when requested)
     comment_post_ids = set()

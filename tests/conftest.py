@@ -8,6 +8,17 @@ from app.core.database import Base, get_db
 from app.core.dependencies import get_current_user
 from app.main import app
 
+try:
+    from app.core.tasks.ai_tasks import analyze_sentiment_task, suggest_hashtags_task
+
+    def _mock_delay(**kwargs):
+        pass
+
+    suggest_hashtags_task.delay = _mock_delay
+    analyze_sentiment_task.delay = _mock_delay
+except Exception:
+    pass
+
 # In-memory SQLite DB
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -21,7 +32,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 # Fake user to mock get_current_user
 class FakeUser:
     id = 1
-    tenant_id = "tenant-1"
+    tenant_id = "default"
     role = "user"
     is_active = True
 
@@ -29,6 +40,27 @@ fake_user = FakeUser()
 
 def override_get_current_user():
     return fake_user
+
+
+@pytest.fixture(autouse=True)
+def seed_user(db_session):
+    """Seed a test user matching the fake_user so FK relationships work."""
+    from app.models.user import User
+
+    user = db_session.query(User).filter(User.id == 1).first()
+    if not user:
+        db_session.add(
+            User(
+                id=1,
+                username="testuser",
+                email="testuser@example.com",
+                hashed_password="hashed_password",
+                is_active=True,
+                role="user",
+                tenant_id="default",
+            )
+        )
+        db_session.commit()
 
 def override_get_db():
     try:
