@@ -4,14 +4,14 @@ Endpoints: profile view, profile update, change password, list users, admin acti
 """
 
 import logging
-import os
-import shutil
-import uuid
+import cloudinary
+import cloudinary.uploader
 from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.cache import cache_service
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_admin, get_current_user
@@ -44,6 +44,50 @@ from app.schemas.user import (
 
 router = APIRouter()
 logger = logging.getLogger("kapak")
+
+
+def _cloudinary_configured() -> bool:
+    settings = get_settings()
+    return bool(
+        settings.CLOUDINARY_CLOUD_NAME
+        and settings.CLOUDINARY_API_KEY
+        and settings.CLOUDINARY_API_SECRET
+    )
+
+
+def _upload_profile_image(file: UploadFile, folder: str) -> str:
+    settings = get_settings()
+    if not _cloudinary_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Public image storage is not configured.",
+        )
+
+    cloudinary.config(
+        cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+        api_key=settings.CLOUDINARY_API_KEY,
+        api_secret=settings.CLOUDINARY_API_SECRET,
+        secure=True,
+    )
+    try:
+        result = cloudinary.uploader.upload(
+            file.file,
+            resource_type="image",
+            folder=folder,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error uploading to Cloudinary: {str(e)}",
+        )
+
+    secure_url = result.get("secure_url")
+    if not secure_url or not secure_url.startswith("https://"):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cloudinary did not return a public HTTPS URL.",
+        )
+    return secure_url
 
 
 @router.get("/", response_model=List[UserPublicResponse])
@@ -149,18 +193,8 @@ def upload_avatar(
             detail="File provided is not an image.",
         )
 
-    if not file.filename:
-        file_extension = "jpg"
-    else:
-        file_extension = file.filename.split(".")[-1]
+    current_user.avatar_url = _upload_profile_image(file, "kapak/avatars")
 
-    filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
-    file_path = os.path.join("uploads", "avatars", filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    current_user.avatar_url = f"/uploads/avatars/{filename}"
     db.commit()
     db.refresh(current_user)
 
@@ -182,17 +216,8 @@ def upload_cover(
             detail="File provided is not an image.",
         )
 
-    if not file.filename:
-        file_extension = "jpg"
-    else:
-        file_extension = file.filename.split(".")[-1]
-    filename = f"cover_{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
-    file_path = os.path.join("uploads", "avatars", filename) # Using same folder for now or create 'covers'
+    current_user.cover_url = _upload_profile_image(file, "kapak/covers")
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    current_user.cover_url = f"/uploads/avatars/{filename}"
     db.commit()
     db.refresh(current_user)
 

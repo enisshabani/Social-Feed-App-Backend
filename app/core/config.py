@@ -40,6 +40,13 @@ class Settings(BaseSettings):
 
     # Email
     FRONTEND_URL: str = "http://localhost:5173"
+    PUBLIC_BACKEND_URL: str = ""
+
+    # Cloudinary Base Storage
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+
     MAILTRAP_TOKEN: str = ""
     MAILTRAP_SENDER_EMAIL: str = "hello@demomailtrap.co"
     MAIL_USERNAME: str = ""
