@@ -40,16 +40,16 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def db_session():
-    # Create the tables
+    from app.core.cache import cache_service
+    cache_service.invalidate_prefix("")
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
-        # Drop tables after each test
         Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="module")

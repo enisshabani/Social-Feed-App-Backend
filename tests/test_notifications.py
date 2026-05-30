@@ -1,4 +1,5 @@
 import pytest
+from fastapi import HTTPException
 
 from app.core.dependencies import get_current_user
 from app.main import app
@@ -74,12 +75,17 @@ def test_get_unread_count_returns_200(test_client, populated_db):
     assert response.json()["unread_count"] == 2
 
 def test_unauthorized_returns_401(test_client):
-    # Temporarily remove override
-    app.dependency_overrides.pop(get_current_user, None)
+    def _raise_unauthorized():
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    response = test_client.get("/api/v1/notifications")
-    assert response.status_code == 401
+    saved = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = _raise_unauthorized
 
-    # Restore override for other tests
-    from tests.conftest import override_get_current_user
-    app.dependency_overrides[get_current_user] = override_get_current_user
+    try:
+        response = test_client.get("/api/v1/notifications")
+        assert response.status_code == 401
+    finally:
+        if saved is not None:
+            app.dependency_overrides[get_current_user] = saved
+        else:
+            app.dependency_overrides.pop(get_current_user, None)

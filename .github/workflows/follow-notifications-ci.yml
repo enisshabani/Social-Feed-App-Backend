@@ -2,7 +2,6 @@ name: Follow and Notifications Backend CI
 
 on:
   push:
-    branches: [main, master]
     paths:
       - "app/modules/follows/**"
       - "app/modules/notifications/**"
@@ -14,7 +13,6 @@ on:
       - "pyproject.toml"
       - ".github/workflows/follow-notifications-ci.yml"
   pull_request:
-    branches: [main, master]
     paths:
       - "app/modules/follows/**"
       - "app/modules/notifications/**"
@@ -51,5 +49,6 @@ jobs:
 
       - name: Run unit and API tests
         env:
+          DATABASE_URL: sqlite:///:memory:
           REDIS_URL: redis://localhost:6379/0
         run: pytest tests/test_follows.py tests/test_follows_api.py tests/test_notifications.py tests/test_notifications_service.py
